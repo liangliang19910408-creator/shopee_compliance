@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Report - Shopee MY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        html, body { height: 100%; overflow-y: auto; scroll-behavior: smooth; }
+        body { -webkit-overflow-scrolling: touch; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .violation-card-high {
+            background: rgba(239, 68, 68, 0.08);
+            border-left: 4px solid #ef4444;
+        }
+        .violation-card-medium {
+            background: rgba(245, 158, 11, 0.08);
+            border-left: 4px solid #f59e0b;
+        }
+        .violation-card-low {
+            background: rgba(107, 114, 128, 0.08);
+            border-left: 4px solid #6b7280;
+        }
+        .violation-card-optimize {
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 4px solid #3b82f6;
+        }
+        .action-highlight {
+            color: #6366f1;
+            font-weight: 600;
+        }
+        .lock-overlay {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+        }
+        /* Report Card */
+        .report-card-content {
+            overflow: visible;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen py-3 sm:py-6 px-3 sm:px-4">
+    <div class="max-w-2xl mx-auto">
+        <!-- Top Bar: Back Link + Language Switcher -->
+        <div class="flex items-center justify-between mb-3 sm:mb-4">
+            <a href="/scan" class="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition text-sm">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                <span data-i18n="backHome">Back to Scan</span>
+            </a>
+            <button id="langToggleBtn" onclick="toggleLanguage()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
+                </svg>
+                <span id="langToggleLabel">EN</span>
+            </button>
+        </div>
+
+        <!-- Report Card -->
+        <div class="report-card-content bg-white rounded-xl shadow-xl">
+            <!-- Header -->
+            <div id="reportHeader" class="p-3 sm:p-4 text-center">
+                <div id="reportIcon" class="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/20 mb-2"></div>
+                <h1 id="reportTitle" class="text-lg sm:text-xl font-bold text-white mb-0.5"></h1>
+                <p id="reportSummary" class="text-white/80 text-xs"></p>
+            </div>
+
+            <!-- Compliance Score Card (Top) -->
+            <div class="p-4 sm:p-5 bg-gradient-to-br from-slate-50 to-slate-100">
+                <!-- Circular Progress Bar -->
+                <div class="flex flex-col items-center">
+                    <div class="relative w-32 h-32 sm:w-40 sm:h-40">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" stroke-width="8" />
+                            <circle id="scoreCircle" cx="50" cy="50" r="42" fill="none" stroke="#10b981" stroke-width="8" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="0" />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span id="scoreValue" class="text-3xl sm:text-4xl font-bold text-slate-800"></span>
+                            <span class="text-xs text-slate-500">/ 100</span>
+                        </div>
+                    </div>
+                    <div id="scoreLevelBadge" class="mt-3 px-4 py-1.5 rounded-full text-sm font-bold"></div>
+                    <div class="text-xs text-slate-400 mt-1" data-i18n="complianceScore">Compliance Score</div>
+                    <p class="text-xs text-gray-500 mt-1" data-i18n="scoreDisclaimer">Score is based on curated term matches. Not a guarantee of platform approval.</p>
+                </div>
+
+                <!-- Actions Row -->
+                <div class="flex justify-center gap-3 mt-4">
+                    <!-- Share Button -->
+                    <button id="shareBtn" onclick="shareResult()" class="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                        </svg>
+                        <span data-i18n="share">Share</span>
+                    </button>
+                    <!-- Download Report Card -->
+                    <button onclick="downloadReportCard()" class="px-4 py-2 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg transition flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span data-i18n="downloadCard">Download Card</span>
+                    </button>
+                </div>
+
+                <!-- Share Link Display (hidden by default) -->
+                <div id="shareLinkArea" class="hidden mt-3 p-3 bg-slate-200/50 rounded-lg">
+                    <div class="text-xs text-slate-500 mb-1.5" data-i18n="shareLinkLabel">Share this link:</div>
+                    <div class="flex items-center gap-2">
+                        <input id="shareLinkInput" type="text" readonly class="flex-1 px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-700 truncate" />
+                        <button onclick="copyShareLink()" class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded">
+                            <span data-i18n="copy">Copy</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-3 sm:p-4">
+                <!-- Product Info -->
+                <div class="mb-3 p-2.5 sm:p-3 bg-slate-50 rounded-lg">
+                    <h2 data-i18n="productInfo" class="text-xs font-semibold text-slate-500 uppercase mb-1.5 tracking-wide">Product Information</h2>
+                    <div class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs sm:text-sm">
+                        <span class="text-slate-500"><span data-i18n="title">Title</span>：</span>
+                        <span id="productTitle" class="text-slate-800 font-medium break-words"></span>
+
+                        <span class="text-slate-500"><span data-i18n="desc">Description</span>：</span>
+                        <span id="productDesc" class="text-slate-800 break-words"></span>
+
+                        <span class="text-slate-500"><span data-i18n="scan.form.cost_label">Est. Cost (RM)</span>：</span>
+                        <span id="productCost" class="text-slate-800 break-words"></span>
+
+                        <span class="text-slate-500"><span data-i18n="scan.form.price_label">Est. Price (RM)</span>：</span>
+                        <span id="productPrice" class="text-slate-800 break-words"></span>
+
+                        <span class="text-slate-500"><span data-i18n="category">Category</span>：</span>
+                        <span id="productCategory" class="text-slate-800 break-words"></span>
+                    </div>
+                </div>
+
+                <!-- 毛利卡片（仅当有毛利数据时显示） -->
+                <div id="marginCard" class="hidden mb-3 p-3 rounded-xl bg-green-900/30 border border-green-600/30">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-sm text-green-300 font-medium" data-i18n="scan.result.gross_profit">
+                                Est. Gross Profit: RM{{gp}} ({{margin}}%)
+                            </div>
+                            <div class="text-xs text-slate-500 mt-1" data-i18n="scan.result.margin_note">
+                                💡 售价为 Shopee 展示价，实际以订单为准。
+                            </div>
+                        </div>
+                        <div id="marginLevelBadge" class="text-xs px-2 py-1 rounded-full font-bold">
+                            <!-- 根据 margin_level 显示不同颜色 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 毛利空值占位提示（仅当扫描完成但缺少成本/售价时显示） -->
+                <div id="marginPlaceholder" class="hidden mb-3 p-3 rounded-xl bg-slate-100 border border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <span class="text-xl">📊</span>
+                        <p class="text-xs text-slate-500" data-i18n="scan.placeholder.margin_empty">Enter your estimated cost and price above to see gross profit and margin level after scanning.</p>
+                    </div>
+                </div>
+
+                <!-- Risk Stats -->
+                <div class="grid grid-cols-4 gap-2 sm:gap-3 mb-3">
+                    <div class="text-center p-2 bg-red-50 rounded-lg">
+                        <div id="highCount" class="text-lg sm:text-xl font-bold text-red-600">0</div>
+                        <div data-i18n="severe" class="text-xs text-slate-500">Severe</div>
+                    </div>
+                    <div class="text-center p-2 bg-amber-50 rounded-lg">
+                        <div id="mediumCount" class="text-lg sm:text-xl font-bold text-amber-600">0</div>
+                        <div data-i18n="moderate" class="text-xs text-slate-500">Moderate</div>
+                    </div>
+                    <div class="text-center p-2 bg-gray-50 rounded-lg">
+                        <div id="lowCount" class="text-lg sm:text-xl font-bold text-gray-600">0</div>
+                        <div data-i18n="minor" class="text-xs text-slate-500">Minor</div>
+                    </div>
+                    <div class="text-center p-2 bg-blue-50 rounded-lg">
+                        <div id="optimizeCount" class="text-lg sm:text-xl font-bold text-blue-600">0</div>
+                        <div data-i18n="optimize" class="text-xs text-slate-500">Optimize</div>
+                    </div>
+                </div>
+
+                <!-- Violations List -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 data-i18n="violationDetails" class="text-sm font-semibold text-slate-800">Violation Details</h2>
+                        <button onclick="showFalsePositiveForm()" id="reportFalsePositiveBtn" class="text-xs text-purple-500 hover:text-purple-600 font-medium flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                            </svg>
+                            <span data-i18n="reportFalsePositive">Report False Positive</span>
+                        </button>
+                    </div>
+                    <div id="violationsList" class="space-y-2"></div>
+                </div>
+
+                <!-- False Positive Report Form (hidden by default) -->
+                <div id="falsePositiveForm" class="hidden mt-4 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                    <h3 data-i18n="reportFalsePositive" class="text-xs font-semibold text-gray-700 mb-2">Report False Positive</h3>
+                    <div class="space-y-2">
+                        <input type="text" id="fpWord" data-i18n-placeholder="falsePositiveWordPlaceholder" placeholder="Word you believe is a false positive" class="w-full px-3 py-2 rounded-lg text-sm text-gray-800 border border-gray-300">
+                        <textarea id="fpReason" data-i18n-placeholder="falsePositiveReasonPlaceholder" placeholder="Why do you believe this is a false positive?" rows="2" class="w-full px-3 py-2 rounded-lg text-sm text-gray-800 border border-gray-300"></textarea>
+                        <div>
+                            <label class="text-xs text-slate-400 mb-1 block" data-i18n="fp.email_label">Email (Optional)</label>
+                            <input type="email" id="fpEmail" placeholder="your@email.com" class="w-full px-3 py-2 rounded-lg text-sm text-gray-800 border border-gray-300">
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="hideFalsePositiveForm()" data-i18n="cancel" class="flex-1 py-2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg">Cancel</button>
+                            <button onclick="submitFalsePositive()" data-i18n="submit" class="flex-1 py-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg">Submit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Safe Title Area -->
+                <div id="safeTitleArea" class="mt-4" style="display: none;">
+                    <h2 data-i18n="safeTitleLabel" class="text-sm font-semibold text-slate-800 mb-1">Recommended Safe Title</h2>
+                    <p data-i18n="referenceTitleNote" class="text-xs text-gray-500 mb-2">Reference title only. Please verify before listing.</p>
+                    <div class="relative p-4 rounded-xl bg-gray-800 border-2 border-purple-500 shadow-lg" style="position: relative; min-height: 120px;">
+                        <!-- Content -->
+                        <div id="safeTitleText" class="font-semibold text-white text-sm sm:text-base mb-3"></div>
+                        <div id="safeTitleActions" class="flex items-center gap-3">
+                            <button id="copySafeTitleBtn" onclick="copySafeTitle()" class="px-4 py-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition" style="display: none;">
+                                <span data-i18n="copySafeTitle">Copy Safe Title</span>
+                            </button>
+                            <span id="safeTitleLockMsg" class="text-xs text-slate-400" style="display: none;"></span>
+                        </div>
+
+                        <!-- Lock Overlay -->
+                        <div id="safeTitleLockOverlay" class="flex items-center justify-center" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border-radius: 0.75rem;">
+                            <div class="text-center text-white px-4">
+                                <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                                <p data-i18n="previewOnly" class="text-sm font-bold mb-2">PREVIEW ONLY</p>
+                                <div class="flex flex-wrap justify-center gap-2 mb-3 text-xs text-gray-300">
+                                    <span>🎁 7天免费试用</span>
+                                    <span>💰 RM29/月</span>
+                                    <span>✓ 随时取消</span>
+                                </div>
+                                <button onclick="handleUpgrade()" class="inline-block text-xs bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition" style="text-decoration: none;">
+                                    <span data-i18n="upgradeBtn">Upgrade to Pro</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rewrite Area -->
+                <div id="rewriteArea" class="mt-4" style="display: none;">
+
+                    <button id="rewriteBtn" onclick="handleRewrite()" class="w-full py-2.5 text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-300 rounded-lg transition flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span data-i18n="rewrite.btn">Rewrite (restructure only)</span>
+                    </button>
+                    <div id="rewriteResult" class="mt-3 p-3 rounded-lg bg-orange-50 border border-orange-200" style="display: none;">
+                        <p id="rewriteText" class="text-sm text-slate-800"></p>
+                        <p class="text-xs text-blue-600 mt-2 font-medium">💡 完整修复方案需 Pro 权限，升级解锁全部功能</p>
+                    </div>
+                </div>
+
+                <!-- Hygiene Tips Card -->
+                <div id="hygieneArea" class="mt-4" style="display: none;">
+                    <div class="p-3 rounded-xl bg-gray-100 border border-gray-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                            <h2 data-i18n="hygieneTips" class="text-xs font-medium text-gray-400">Readability Tips</h2>
+                        </div>
+                        <div id="hygieneList" class="space-y-1"></div>
+                    </div>
+                </div>
+
+                <!-- GO Status Weak Lead -->
+                <div id="goLeadArea" class="hidden mt-4 text-center">
+                    <p class="text-xs text-gray-500"><span data-i18n="goLeadText">Need bulk scanning or export history?</span></p>
+                    <div class="flex flex-wrap justify-center gap-2 mb-2 text-xs text-gray-400">
+                        <span>🎁 7天免费试用</span>
+                        <span>💰 RM29/月</span>
+                        <span>✓ 随时取消</span>
+                    </div>
+                    <a href="#" class="text-purple-500 hover:underline text-xs font-medium" id="weakLead"><span data-i18n="goLeadLink">Start 7-day free trial</span></a>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-4 py-2.5 bg-slate-50 border-t">
+                <div class="flex items-center justify-between text-xs sm:text-sm">
+                    <p class="text-slate-500">
+                        <span data-i18n="reportTime">Report generated</span>: <span id="scannedAt"></span>
+                    </p>
+                    <a href="/scan" class="text-indigo-600 hover:text-indigo-700 font-medium"><span data-i18n="continueScan">Scan Again</span> →</a>
+                </div>
+            </div>
+
+            <!-- Disclaimer -->
+            <div class="px-4 py-2 bg-slate-50 border-t text-center">
+                <p data-i18n="footerDisclaimer" class="text-[10px] text-gray-400">Advisory only. Based on publicly available Shopee MY resources. Not affiliated with Shopee/Lazada.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trial Modal -->
+    <div id="trialModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-sm p-5 sm:p-6 shadow-2xl relative">
+            <button onclick="closeTrialModal()" class="absolute top-3 right-3 text-slate-400 hover:text-white transition p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <div class="text-center mb-5">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-500/20 mb-3">
+                    <span class="text-2xl">🔒</span>
+                </div>
+                <h2 data-i18n="trialModalTitle" class="text-lg sm:text-xl font-bold text-gray-800 mb-1">Unlock 7-Day Free Trial</h2>
+                <p data-i18n="trialModalDesc" class="text-slate-400 text-xs sm:text-sm">Enter your email for unlimited scans, no credit card required.</p>
+            </div>
+            <form id="trialForm">
+                <input id="modalEmail" type="email" required data-i18n-placeholder="trialModalEmail"
+                    class="w-full px-3 py-2.5 rounded-lg text-gray-800 border border-gray-300 outline-none transition mb-4 text-sm">
+                <div class="flex gap-3">
+                    <button type="button" onclick="closeTrialModal()"
+                        class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition text-sm">
+                        <span data-i18n="cancel">Cancel</span>
+                    </button>
+                    <button type="submit"
+                        class="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg transition text-sm">
+                        <span data-i18n="trialModalBtn">Unlock Trial</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const translations = {
+            en: {
+                backHome: 'Back to Scan',
+                scanReport: 'Compliance Scan Report',
+                productInfo: 'Product Information',
+                title: 'Title',
+                category: 'Category',
+                desc: 'Description',
+                severe: 'Severe',
+                moderate: 'Moderate',
+                minor: 'Minor',
+                optimize: 'Optimize',
+                violationDetails: 'Violation Details',
+                reportTime: 'Report generated',
+                continueScan: 'Scan Again',
+                issue: 'Issue',
+                detectedIn: 'detected in',
+                why: 'Why',
+                action: 'Action',
+                footerDisclaimer: 'Advisory only. Based on publicly available Shopee MY resources. Not affiliated with Shopee/Lazada.',
+                noReport: 'No report data available',
+                goHome: 'Go to Home',
+                safeTitleLabel: 'Recommended Safe Title',
+                copySafeTitle: 'Copy Safe Title',
+                safeTitleLocked: 'Upgrade to unlock full Safe Title',
+                safeTitleCopied: 'Copied!',
+                complianceScore: 'Compliance Score',
+                share: 'Share',
+                shareSuccess: 'Trial extended by 7 days!',
+                shareFail: 'Already shared today',
+                downloadCard: 'Download Card',
+                shareLinkLabel: 'Share this link:',
+                copy: 'Copy',
+                upgradeBtn: 'Upgrade to Pro',
+                hygieneTips: 'Readability Tips',
+                hygieneTitleLength: 'Title exceeds 128 characters - may be truncated',
+                hygieneWordRepeat: 'Repeated word detected - consider rephrasing',
+                hygieneAllCaps: 'Excessive uppercase - reduce for readability',
+                stopLevelMsg: 'High risk violation detected. Item may be removed. Cannot generate reference title.',
+                scoreDisclaimer: 'Score is based on curated term matches. Not a guarantee of platform approval.',
+                previewOnly: 'PREVIEW ONLY',
+                referenceTitleNote: 'Reference title only. Please verify before listing.',
+                reportFalsePositive: 'Report False Positive',
+                falsePositiveWordPlaceholder: 'Word you believe is a false positive',
+                falsePositiveReasonPlaceholder: 'Why do you believe this is a false positive?',
+                cancel: 'Cancel',
+                submit: 'Submit',
+                fpFillBothFields: 'Please fill in both fields',
+                fpThankYou: 'Thank you! We will review your report shortly.',
+                fpSubmitFailed: 'Failed to submit. Please try again.',
+                trialActivated: 'Trial activated! Redirecting to home...',
+                trialActivateFailed: 'Failed to activate trial. Please try again.',
+                safeTitle: 'Looking Good!',
+                safeDesc: 'No sensitive words detected.',
+                riskTitle: 'Risk Detected',
+                riskDescEmoji: 'Emoji found in title.',
+                riskDescKeyword: 'Sensitive keyword detected.',
+                copySafeTitle: 'Copy Safe Title',
+                'scan.result.gross_profit': 'Est. Gross Profit: RM{{gp}} ({{margin}}%)',
+                'scan.result.margin_note': '💡 Price shown is Shopee listing price, actual may vary.',
+                'scan.result.margin_high': 'High Margin',
+                'scan.placeholder.margin_empty': 'Enter your estimated cost and price above to see gross profit and margin level after scanning.',
+                'scan.result.margin_medium': 'Medium Margin',
+                'scan.result.margin_low': 'Low Margin',
+                'scan.form.cost_label': 'Est. Cost (RM)',
+                'scan.form.price_label': 'Est. Price (RM)',
+                'fp.email_label': 'Email (Optional)',
+                'rewrite.disclaimer': '⚠️ Rewrite only restructures sentences. Compliance not guaranteed. Please verify before listing.',
+                'rewrite.btn': 'Rewrite (restructure only)',
+                'rewrite.note': 'Rewrite is sentence restructuring only. Compliance not guaranteed.',
+                goLeadText: 'Need bulk scanning or export history?',
+                goLeadLink: 'Start 7-day free trial',
+                trialModalTitle: 'Unlock 7-Day Free Trial',
+                trialModalDesc: 'Enter your email for unlimited scans, no credit card required.',
+                trialModalBtn: 'Unlock Trial',
+                trialModalEmail: 'Enter your email'
+            },
+            zh: {
+                backHome: '返回扫描',
+                scanReport: '合规检测报告',
+                productInfo: '商品信息',
+                title: '标题',
+                category: '类目',
+                desc: '描述',
+                severe: '严重',
+                moderate: '中等',
+                minor: '轻微',
+                optimize: '优化建议',
+                violationDetails: '违规详情',
+                reportTime: '报告生成时间',
+                continueScan: '继续检测',
+                issue: '问题',
+                detectedIn: '发现于',
+                why: '原因',
+                action: '建议',
+                footerDisclaimer: '仅供参考。基于 Shopee 马来西亚公开卖家资源。与 Shopee/Lazada 无关联。',
+                noReport: '暂无报告数据',
+                goHome: '返回首页',
+                safeTitleLabel: '推荐安全标题',
+                copySafeTitle: '复制安全标题',
+                safeTitleLocked: '升级后解锁完整安全标题',
+                safeTitleCopied: '已复制！',
+                complianceScore: '合规评分',
+                share: '分享',
+                shareSuccess: '试用已延长7天！',
+                shareFail: '今天已分享过',
+                downloadCard: '下载报告卡',
+                shareLinkLabel: '分享链接：',
+                copy: '复制',
+                upgradeBtn: '升级到 Pro',
+                hygieneTips: '可读性提示',
+                hygieneTitleLength: '标题超过128字符 - 可能被截断',
+                hygieneWordRepeat: '检测到重复词 - 建议重新表述',
+                hygieneAllCaps: '过多大写字母 - 降低以提升可读性',
+                stopLevelMsg: '该商品命中高危禁售词，建议下架处理。',
+                scoreDisclaimer: '评分基于精选词库匹配，不保证平台审核通过。',
+                previewOnly: '仅供预览',
+                referenceTitleNote: '仅供参考，上架前请人工复核。',
+                reportFalsePositive: '报告误报',
+                falsePositiveWordPlaceholder: '您认为是误报的词语',
+                falsePositiveReasonPlaceholder: '您为什么认为这是误报？',
+                cancel: '取消',
+                submit: '提交',
+                fpFillBothFields: '请填写所有字段',
+                fpThankYou: '感谢您的反馈！我们会尽快审核您的报告。',
+                fpSubmitFailed: '提交失败，请重试。',
+                trialActivated: '试用已激活！正在跳转到首页...',
+                trialActivateFailed: '激活试用失败，请重试。',
+                safeTitle: '暂无风险！',
+                safeDesc: '未检测到敏感词。',
+                riskTitle: '检测到风险',
+                riskDescEmoji: '标题中含有 Emoji。',
+                riskDescKeyword: '检测到敏感关键词。',
+                copySafeTitle: '复制安全标题',
+                'scan.result.gross_profit': '预估毛利：RM{{gp}} ({{margin}}%)',
+                'scan.result.margin_note': '💡 售价为 Shopee 展示价，实际以订单为准。',
+                'scan.result.margin_high': '高毛利',
+                'scan.result.margin_medium': '中毛利',
+                'scan.result.margin_low': '低毛利',
+                'scan.form.cost_label': '预估成本 (RM)',
+                'scan.form.price_label': '预估售价 (RM)',
+                'scan.placeholder.margin_empty': '在上方填入预估成本和售价，扫描后即可查看毛利计算结果和利润率等级。',
+                'fp.email_label': '邮箱（选填）',
+                'rewrite.disclaimer': '⚠️ 改写仅整理句式，不担保合规，上架前请人工复核。',
+                'rewrite.btn': '改写（仅整理句式）',
+                'rewrite.note': '改写仅整理句式，合规性不做担保。',
+                goLeadText: '需要批量扫描或导出历史记录？',
+                goLeadLink: '开始7天免费试用',
+                trialModalTitle: '解锁7天免费试用',
+                trialModalDesc: '输入您的邮箱即可享受无限次扫描，无需信用卡。',
+                trialModalBtn: '解锁试用',
+                trialModalEmail: '请输入您的邮箱'
+            }
+        };
+
+        let currentLang = 'en';
+        let currentReportData = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            currentLang = localStorage.getItem('lang') || 'en';
+
+            const reportData = sessionStorage.getItem('complianceReport');
+            if (reportData) {
+                try {
+                    currentReportData = JSON.parse(reportData);
+                    console.log('Report data loaded:', currentReportData);
+                    applyLanguage(currentLang);
+                    renderReport(currentReportData);
+                } catch (e) {
+                    console.error('Failed to parse report data:', e);
+                    applyLanguage(currentLang);
+                    document.querySelector('.max-w-2xl').innerHTML = `
+                        <div class="text-center py-12">
+                            <p class="text-slate-400 mb-3">${translations[currentLang].noReport}</p>
+                            <a href="/" class="text-indigo-400 hover:text-indigo-300 text-sm">${translations[currentLang].goHome}</a>
+                        </div>
+                    `;
+                }
+            } else {
+                console.log('No report data in sessionStorage, using mock data for testing');
+                const mockData = {
+                    success: true,
+                    risk_level: 'HIGH',
+                    violations: [
+                        { type: 'banned_word', level: 'high', field: 'title', matched_word: 'vape', suggestion: 'Remove "vape".', reason: 'Prohibited item', safe_title_template: '' }
+                    ],
+                    score: 70,
+                    score_level: 'STOP',
+                    has_actionable_risk: true,
+                    locked: true,
+                    product_category: 'general',
+                    title: 'test vape product',
+                    description: 'this is a test',
+                    cost_rm: 10.00,
+                    price_rm: 50.00,
+                    gross_profit_rm: 40.00,
+                    margin_percent: 80.00,
+                    margin_level: 'High Margin'
+                };
+                currentReportData = mockData;
+                applyLanguage(currentLang);
+                renderReport(mockData);
+            }
+            updateLangToggleLabel();
+        });
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'zh' : 'en';
+            localStorage.setItem('lang', currentLang);
+            if (currentReportData) {
+                applyLanguage(currentLang);
+                renderReport(currentReportData);
+            } else {
+                applyLanguage(currentLang);
+            }
+            updateLangToggleLabel();
+        }
+
+        function updateLangToggleLabel() {
+            const label = document.getElementById('langToggleLabel');
+            if (label) {
+                label.textContent = currentLang === 'zh' ? '中' : 'EN';
+            }
+        }
+
+        function applyLanguage(lang) {
+            const t = translations[lang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) el.textContent = t[key];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (t[key]) el.placeholder = t[key];
+            });
+        }
+
+        function renderReport(data) {
+            if (!data || typeof data !== 'object') {
+                console.error('Invalid report data:', data);
+                return;
+            }
+
+            console.log('renderReport started with data:', JSON.stringify(data));
+
+            const t = translations[currentLang];
+            console.log('Translations:', t);
+            
+            const colors = {
+                HIGH: { bg: 'bg-red-600', headerBg: 'bg-red-50' },
+                MEDIUM: { bg: 'bg-amber-500', headerBg: 'bg-amber-50' },
+                LOW: { bg: 'bg-green-500', headerBg: 'bg-green-50' },
+                SAFE: { bg: 'bg-green-500', headerBg: 'bg-green-50' }
+            };
+
+            const violationsArray = Array.isArray(data.violations) ? data.violations : [];
+            console.log('Violations array:', violationsArray);
+            
+            const getViolationLevel = (v) => {
+                if (!v.level) return 'low';
+                const level = typeof v.level === 'object' && v.level.value 
+                    ? v.level.value.toLowerCase() 
+                    : String(v.level).toLowerCase();
+                if (level === 'info') return 'optimize';
+                return level;
+            };
+
+            const getViolationType = (v) => {
+                if (!v.type) return 'banned_word';
+                return typeof v.type === 'object' && v.type.value 
+                    ? v.type.value.toLowerCase() 
+                    : String(v.type).toLowerCase();
+            };
+            
+            let riskLevel = 'LOW';
+            if (data.risk_level) {
+                riskLevel = typeof data.risk_level === 'object' && data.risk_level.value 
+                    ? data.risk_level.value 
+                    : String(data.risk_level).toUpperCase();
+            }
+            console.log('Risk level:', riskLevel);
+            
+            const color = colors[riskLevel] || colors.LOW;
+            const isZh = currentLang === 'zh';
+            console.log('Color:', color, 'isZh:', isZh);
+
+            document.getElementById('reportHeader').className = `p-4 sm:p-6 text-center ${color.bg}`;
+            document.getElementById('reportIcon').innerHTML = riskLevel === 'LOW'
+                ? '<svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+                : '<svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+
+            document.getElementById('reportTitle').textContent = riskLevel === 'LOW' ? t.safeTitle
+                : riskLevel === 'MEDIUM' ? t.riskTitle
+                : t.riskTitle;
+
+            const hasEmojiViolation = violationsArray.some(v => getViolationType(v) === 'emoji');
+            document.getElementById('reportSummary').textContent = riskLevel === 'LOW' ? t.safeDesc
+                : (hasEmojiViolation ? t.riskDescEmoji : t.riskDescKeyword);
+
+            document.getElementById('productTitle').textContent = data.title || '-';
+            document.getElementById('productDesc').textContent = data.description || '-';
+            document.getElementById('productCost').textContent = data.cost_rm !== null && data.cost_rm !== undefined ? 'RM' + data.cost_rm.toFixed(2) : '-';
+            document.getElementById('productPrice').textContent = data.price_rm !== null && data.price_rm !== undefined ? 'RM' + data.price_rm.toFixed(2) : '-';
+
+            // 类目翻译映射
+            const categoryMap = {
+                en: { general: 'General', beauty: 'Beauty', electronics: 'Electronics', fashion: 'Fashion', home: 'Home & Living' },
+                zh: { general: '通用', beauty: '美妆', electronics: '电子产品', fashion: '时尚', home: '家居生活' }
+            };
+            const catKey = (data.product_category || data.category || 'general').toLowerCase();
+            const categoryLabel = (categoryMap[currentLang] && categoryMap[currentLang][catKey]) || data.product_category || data.category || '-';
+            document.getElementById('productCategory').textContent = categoryLabel;
+
+            // Score & Circular Progress
+            const score = data.score !== null && data.score !== undefined ? data.score : 100;
+            document.getElementById('scoreValue').textContent = score;
+            
+            const circle = document.getElementById('scoreCircle');
+            const circumference = 2 * Math.PI * 42;
+            const offset = circumference - (score / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+
+            const scoreLevel = data.score_level || 'GO';
+            let scoreColor, levelText, levelClass;
+            if (scoreLevel === 'GO') {
+                scoreColor = '#10b981';
+                levelText = 'GO';
+                levelClass = 'bg-green-100 text-green-700';
+            } else if (scoreLevel === 'REVIEW') {
+                scoreColor = '#f59e0b';
+                levelText = 'REVIEW';
+                levelClass = 'bg-amber-100 text-amber-700';
+            } else {
+                scoreColor = '#ef4444';
+                levelText = 'STOP';
+                levelClass = 'bg-red-100 text-red-700';
+            }
+            circle.style.stroke = scoreColor;
+            document.getElementById('scoreLevelBadge').textContent = levelText;
+            document.getElementById('scoreLevelBadge').className = `mt-3 px-4 py-1.5 rounded-full text-sm font-bold ${levelClass}`;
+
+            let displayViolations = violationsArray;
+            let remainingCount = 0;
+            
+            displayViolations = [...violationsArray].sort((a, b) => {
+                const levelA = getViolationLevel(a);
+                const levelB = getViolationLevel(b);
+                const priority = { high: 0, medium: 1, low: 2, optimize: 3 };
+                return priority[levelA] - priority[levelB];
+            });
+            
+            if (data.hidden_violations_info && data.hidden_violations_info.remaining_count > 0) {
+                remainingCount = data.hidden_violations_info.remaining_count;
+            }
+
+            const displayHighCount = displayViolations.filter(v => getViolationLevel(v) === 'high').length;
+            const displayMediumCount = displayViolations.filter(v => getViolationLevel(v) === 'medium').length;
+            const displayLowCount = displayViolations.filter(v => getViolationLevel(v) === 'low').length;
+            const displayOptimizeCount = displayViolations.filter(v => getViolationLevel(v) === 'optimize').length;
+            
+            document.getElementById('highCount').textContent = displayHighCount;
+            document.getElementById('mediumCount').textContent = displayMediumCount;
+            document.getElementById('lowCount').textContent = displayLowCount;
+            
+            const optimizeCountEl = document.getElementById('optimizeCount');
+            if (optimizeCountEl) {
+                optimizeCountEl.textContent = displayOptimizeCount;
+            }
+
+            const displayTotalCount = displayViolations.length;
+            const summaryText = isZh
+                ? `共发现 ${displayTotalCount} 处违规 - ${displayHighCount} 严重、${displayMediumCount} 中等、${displayLowCount} 轻微`
+                : `${displayTotalCount} violation(s) found - ${displayHighCount} severe, ${displayMediumCount} moderate, ${displayLowCount} minor`;
+            document.getElementById('reportSummary').textContent = summaryText;
+
+            currentReportData = data;
+
+            const list = document.getElementById('violationsList');
+            const fieldLabels = { title: t.title, description: t.desc };
+
+            if (displayViolations.length > 0) {
+                let html = displayViolations.map(v => {
+                    const level = getViolationLevel(v);
+                    const type = getViolationType(v);
+                    
+                    let cardClass, icon, tagClass, tagText;
+                    if (level === 'high') {
+                        cardClass = 'violation-card-high';
+                        icon = '🚫';
+                        tagClass = 'bg-red-100 text-red-700';
+                        tagText = isZh ? '严重' : 'Severe';
+                    } else if (level === 'medium') {
+                        cardClass = 'violation-card-medium';
+                        icon = '⚠️';
+                        tagClass = 'bg-amber-100 text-amber-700';
+                        tagText = isZh ? '中等' : 'Moderate';
+                    } else if (level === 'optimize') {
+                        cardClass = 'violation-card-optimize';
+                        icon = '💡';
+                        tagClass = 'bg-blue-100 text-blue-700';
+                        tagText = isZh ? '优化建议' : 'Optimize';
+                    } else {
+                        cardClass = 'violation-card-low';
+                        icon = 'ℹ️';
+                        tagClass = 'bg-gray-100 text-gray-600';
+                        tagText = isZh ? '轻微' : 'Minor';
+                    }
+
+                    return `
+                        <div class="p-3 sm:p-4 rounded-lg ${cardClass}">
+                            <div class="flex items-start gap-2 mb-2">
+                                <div class="text-lg">${icon}</div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                        <span class="px-2 py-0.5 text-xs rounded ${tagClass}">${tagText}</span>
+                                        <span class="text-xs text-slate-500">${type === 'banned_word' ? (isZh ? '违禁词' : 'Banned Word') : (isZh ? '类目冲突' : 'Category Conflict')}</span>
+                                    </div>
+                                    <p class="text-slate-800 font-semibold text-sm sm:text-base">
+                                        <span class="text-purple-600">"${v.matched_word || ''}"</span>
+                                        <span class="text-slate-500 font-normal text-xs ml-1">${t.detectedIn} ${fieldLabels[v.field] || v.field}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="ml-7 mb-2">
+                                <span class="text-xs text-slate-400 font-medium uppercase">${t.why}:</span>
+                                <p class="text-slate-600 text-xs mt-0.5">${v.reason || ''}</p>
+                            </div>
+                            <div class="ml-7">
+                                <span class="text-xs text-slate-400 font-medium uppercase">${t.action}:</span>
+                                <p class="action-highlight text-xs sm:text-sm mt-0.5">💡 ${v.suggestion || (isZh ? '请修改相关内容' : 'Please revise the content')}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                if (remainingCount > 0) {
+                    html += `
+                        <div class="text-center py-3 text-sm text-gray-500 font-medium">
+                            ... 还有 ${remainingCount} 个隐患未显示
+                        </div>
+                    `;
+                }
+                list.innerHTML = html;
+            } else {
+                list.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-4xl mb-2">🎉</div>
+                        <p class="text-slate-500 text-sm">${isZh ? '您的商品信息符合合规要求' : 'Your listing appears compliant.'}</p>
+                    </div>
+                `;
+            }
+
+            document.getElementById('scannedAt').textContent = data.scanned_at || new Date().toLocaleString();
+
+            renderSafeTitle(data, t);
+            renderHygiene(data, t);
+            renderGoLead(data);
+            renderMargin(data, t); // 显示毛利卡片
+
+            // 显示 Rewrite 区域（仅在有 actionable risk 且非 HIGH 风险时）
+            const rewriteArea = document.getElementById('rewriteArea');
+            const currentScoreLevel = String(data.score_level || 'GO').toUpperCase();
+            if (rewriteArea) {
+                if (data.has_actionable_risk && currentScoreLevel !== 'STOP') {
+                    rewriteArea.style.display = 'block';
+                } else {
+                    rewriteArea.style.display = 'none';
+                }
+            }
+        }
+
+        function renderSafeTitle(data, t) {
+            const safeTitleArea = document.getElementById('safeTitleArea');
+            const safeTitleText = document.getElementById('safeTitleText');
+            const copyBtn = document.getElementById('copySafeTitleBtn');
+            const lockMsg = document.getElementById('safeTitleLockMsg');
+            const lockOverlay = document.getElementById('safeTitleLockOverlay');
+
+            const scoreLevel = String(data.score_level || 'GO').toUpperCase();
+            if (scoreLevel === 'STOP') {
+                safeTitleArea.style.display = 'block';
+                safeTitleText.textContent = '';
+                copyBtn.style.display = 'none';
+                lockMsg.textContent = t.stopLevelMsg;
+                lockMsg.style.display = 'block';
+                lockOverlay.style.display = 'none';
+            } else if (data.has_actionable_risk) {
+                safeTitleArea.style.display = 'block';
+
+                if (data.safe_title_preview) {
+                    if (!data.locked) {
+                        safeTitleText.textContent = data.safe_title_full || data.safe_title_preview;
+                        copyBtn.style.display = 'block';
+                        lockMsg.style.display = 'none';
+                        lockMsg.textContent = '';
+                        lockOverlay.style.display = 'none';
+                    } else {
+                        safeTitleText.textContent = data.safe_title_preview;
+                        copyBtn.style.display = 'none';
+                        lockMsg.textContent = t.safeTitleLocked;
+                        lockMsg.style.display = 'block';
+                        lockOverlay.style.display = 'flex';
+                    }
+                } else {
+                    safeTitleText.textContent = t.safeTitlePlaceholder || '---';
+                    copyBtn.style.display = 'none';
+                    lockMsg.textContent = '';
+                    lockMsg.style.display = 'none';
+                    lockOverlay.style.display = 'none';
+                }
+            } else {
+                safeTitleArea.style.display = 'none';
+            }
+        }
+
+        function renderHygiene(data, t) {
+            const hygieneArea = document.getElementById('hygieneArea');
+            const hygieneList = document.getElementById('hygieneList');
+
+            if (data.hygiene && data.hygiene.length > 0) {
+                hygieneArea.style.display = 'block';
+                hygieneList.innerHTML = data.hygiene.map(h => {
+                    let message = h.message;
+                    // 变体词特殊渲染：灰色背景 + 红色文字提醒
+                    if (h.type === 'variant_word') {
+                        return `
+                            <div class="flex items-start gap-2 p-2 rounded bg-gray-100">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0"></span>
+                                <p class="text-xs text-red-600">${message}</p>
+                            </div>
+                        `;
+                    }
+                    // 根据类型使用翻译
+                    if (h.type === 'title_length') {
+                        message = t.hygieneTitleLength;
+                    } else if (h.type === 'word_repeat') {
+                        message = t.hygieneWordRepeat;
+                    } else if (h.type === 'all_caps') {
+                        message = t.hygieneAllCaps;
+                    }
+                    return `
+                        <div class="flex items-center gap-2">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                            <p class="text-xs text-gray-400">${message}</p>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                hygieneArea.style.display = 'none';
+            }
+        }
+
+        function renderMargin(data, t) {
+            const marginCard = document.getElementById('marginCard');
+            const marginPlaceholder = document.getElementById('marginPlaceholder');
+            
+            if (data.gross_profit_rm !== null && data.gross_profit_rm !== undefined && data.margin_percent !== null && data.margin_percent !== undefined) {
+                marginCard.classList.remove('hidden');
+                marginPlaceholder.classList.add('hidden');
+                
+                const gpText = marginCard.querySelector('[data-i18n="scan.result.gross_profit"]');
+                const margin_level = data.margin_level;
+                const badge = document.getElementById('marginLevelBadge');
+                
+                const gp = data.gross_profit_rm.toFixed(2);
+                const margin = data.margin_percent.toFixed(1);
+                
+                if (currentLang === 'zh') {
+                    gpText.textContent = '预估毛利：RM' + gp + '（利润率 ' + margin + '%）';
+                } else {
+                    gpText.textContent = 'Est. Gross Profit: RM' + gp + ' (' + margin + '%)';
+                }
+                
+                if (margin_level === 'High Margin') {
+                    badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-green-500/20 text-green-400';
+                    badge.textContent = '🟢 ' + t['scan.result.margin_high'];
+                } else if (margin_level === 'Medium Margin') {
+                    badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-yellow-500/20 text-yellow-400';
+                    badge.textContent = '🟡 ' + t['scan.result.margin_medium'];
+                } else {
+                    badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-red-500/20 text-red-400';
+                    badge.textContent = '🔴 ' + t['scan.result.margin_low'];
+                }
+            } else {
+                marginCard.classList.add('hidden');
+                marginPlaceholder.classList.remove('hidden');
+            }
+        }
+
+        function copySafeTitle() {
+            const safeTitleText = document.getElementById('safeTitleText').textContent;
+            const t = translations[currentLang];
+            navigator.clipboard.writeText(safeTitleText).then(() => {
+                showToast(t.safeTitleCopied);
+            }).catch(() => {
+                showToast(t.safeTitleCopied);
+            });
+        }
+
+        function showToast(message) {
+            let toast = document.getElementById('copyToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'copyToast';
+                toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-slate-800 text-white rounded-lg shadow-lg text-sm font-medium z-50 opacity-0 transition-opacity';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 2000);
+        }
+
+        async function handleRewrite() {
+            if (!currentReportData) return;
+            const rewriteArea = document.getElementById('rewriteArea');
+            const rewriteResult = document.getElementById('rewriteResult');
+            const rewriteText = document.getElementById('rewriteText');
+
+            // 仅做语序整理、冗余删减；不替换变体字符，不替换近义词规避
+            const original = currentReportData.title || '';
+            let rewritten = original
+                .replace(/\s{2,}/g, ' ')
+                .replace(/[、，,]/g, ', ')
+                .replace(/\s+,/g, ',')
+                .trim();
+
+            // 严禁：变体字符自动转换（v@pe -> vape）— 保留原样
+            // 严禁：近义词替换规避 — 不做
+
+            rewriteText.textContent = rewritten || original;
+            rewriteResult.style.display = 'block';
+        }
+
+        async function shareResult() {
+            if (!currentReportData) return;
+
+            const t = translations[currentLang];
+            const shareUrl = window.location.origin + '/?ref=share';
+
+            const shareLinkArea = document.getElementById('shareLinkArea');
+            const shareLinkInput = document.getElementById('shareLinkInput');
+            if (shareLinkArea && shareLinkInput) {
+                shareLinkInput.value = shareUrl;
+                shareLinkArea.classList.remove('hidden');
+            }
+
+            if (navigator.share) {
+                const shareText = currentLang === 'zh'
+                    ? `Shopee MY 合规检测 - 评分: ${currentReportData.score}/100`
+                    : `Shopee MY Compliance Checker - Score: ${currentReportData.score}/100`;
+
+                try {
+                    await navigator.share({
+                        title: 'Shopee MY Compliance Report',
+                        text: shareText,
+                        url: shareUrl
+                    });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.error('Share failed:', err);
+                    }
+                    return;
+                }
+            }
+
+            const token = localStorage.getItem('trial_token') || getCookie('session_token');
+            if (!token) return;
+
+            try {
+                const res = await fetch('/api/share', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                const result = await res.json();
+                if (result.success && result.extended) {
+                    alert(t.shareSuccess);
+                    if (result.new_trial_end) {
+                        localStorage.setItem('trial_end', result.new_trial_end);
+                    }
+                } else if (result.success === false) {
+                    // Already shared
+                }
+            } catch (err) {
+                console.error('Share reward failed:', err);
+            }
+        }
+
+        function copyShareLink() {
+            const shareLinkInput = document.getElementById('shareLinkInput');
+            const t = translations[currentLang];
+            if (shareLinkInput) {
+                navigator.clipboard.writeText(shareLinkInput.value).then(() => {
+                    alert(currentLang === 'zh' ? '链接已复制！' : 'Link copied!');
+                });
+            }
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        function downloadReportCard() {
+            if (!currentReportData) return;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+
+            const score = currentReportData.score || 100;
+            const rawRiskLevel = currentReportData.risk_level;
+            const riskLevel = typeof rawRiskLevel === 'object' && rawRiskLevel.value 
+                ? rawRiskLevel.value 
+                : String(rawRiskLevel || 'LOW').toUpperCase();
+            const title = currentReportData.title || '';
+            const isZh = currentLang === 'zh';
+
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, 600, 400);
+
+            const centerX = 300;
+            const centerY = 140;
+            const radius = 70;
+
+            let scoreColor = '#10b981';
+            if (score < 60) scoreColor = '#ef4444';
+            else if (score < 80) scoreColor = '#f59e0b';
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#334155';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + (score / 100) * Math.PI * 2);
+            ctx.strokeStyle = scoreColor;
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 36px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(score, centerX, centerY + 12);
+
+            ctx.font = '14px Inter, sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('/ 100', centerX, centerY + 32);
+
+            let riskText = isZh ? '低风险 / 通过' : 'LOW RISK';
+            if (score >= 80) riskText = 'GO';
+            else if (score >= 60) riskText = 'REVIEW';
+            else riskText = 'STOP';
+
+            ctx.fillStyle = scoreColor;
+            ctx.font = 'bold 18px Inter, sans-serif';
+            ctx.fillText(riskText, centerX, centerY + 110);
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '14px Inter, sans-serif';
+            ctx.fillText(title.substring(0, 50) + (title.length > 50 ? '...' : ''), centerX, 280);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px Inter, sans-serif';
+            ctx.fillText('shopee-compliance.tool', centerX, 350);
+            ctx.fillText(new Date().toLocaleDateString(), centerX, 370);
+
+            const link = document.createElement('a');
+            link.download = `compliance-report-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function showFalsePositiveForm() {
+            document.getElementById('falsePositiveForm').classList.remove('hidden');
+            document.getElementById('reportFalsePositiveBtn').classList.add('hidden');
+        }
+
+        function hideFalsePositiveForm() {
+            document.getElementById('falsePositiveForm').classList.add('hidden');
+            document.getElementById('reportFalsePositiveBtn').classList.remove('hidden');
+        }
+
+        async function submitFalsePositive() {
+            const t = translations[currentLang];
+            const word = document.getElementById('fpWord').value.trim();
+            const reason = document.getElementById('fpReason').value.trim();
+            const email = document.getElementById('fpEmail').value.trim();
+            
+            if (!word || !reason) {
+                alert(t.fpFillBothFields || 'Please fill in both fields');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/report-false-positive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reported_word: word, reason: reason, email: email })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    const notice = result.notice || (currentLang === 'zh' ? '申诉词条将进入公共词库复核，审核通过后全局生效，不提供个人账户私有白名单。' : 'Reported terms will be reviewed for public word library. Once approved, they will take effect globally. No private whitelist for individual accounts.');
+                    alert((t.fpThankYou || 'Thank you! We will review your report shortly.') + '\n\n' + notice);
+                    hideFalsePositiveForm();
+                    document.getElementById('fpWord').value = '';
+                    document.getElementById('fpReason').value = '';
+                    document.getElementById('fpEmail').value = '';
+                } else {
+                    alert(t.fpSubmitFailed || 'Failed to submit. Please try again.');
+                }
+            } catch (err) {
+                console.error('Submit failed:', err);
+                alert(t.fpSubmitFailed || 'Failed to submit. Please try again.');
+            }
+        }
+
+        async function renderGoLead(data) {
+            const goLeadArea = document.getElementById('goLeadArea');
+            const weakLead = document.getElementById('weakLead');
+            
+            let isLoggedIn = document.cookie.includes('session_token') || 
+                             localStorage.getItem('trial_token') !== null;
+            
+            if (!isLoggedIn) {
+                try {
+                    const res = await fetch('/api/user/info');
+                    const userData = await res.json();
+                    if (userData.logged_in) {
+                        isLoggedIn = true;
+                    }
+                } catch (err) {
+                    console.error('Failed to check login status:', err);
+                }
+            }
+            
+            if (data.score_level === 'GO' && !isLoggedIn) {
+                goLeadArea.classList.remove('hidden');
+                weakLead.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.href = '/login';
+                });
+            } else {
+                goLeadArea.classList.add('hidden');
+            }
+        }
+
+        function closeTrialModal() {
+            document.getElementById('trialModal').classList.add('hidden');
+            document.getElementById('trialModal').classList.remove('flex');
+        }
+
+        async function handleUpgrade() {
+            try {
+                await fetch('/api/upgrade-clicked', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_page: 'result', button_position: 'safe_title_section' })
+                });
+            } catch (e) {}
+            window.location.href = '/login';
+        }
+
+        async function recordUpgradeIntent(email) {
+            try {
+                await fetch('/api/upgrade-intent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                window.location.href = `https://billplz.com/bills/xxx?email=${encodeURIComponent(email || '')}`;
+            } catch (err) {
+                console.error('Upgrade intent failed:', err);
+                window.location.href = `https://billplz.com/bills/xxx?email=${encodeURIComponent(email || '')}`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const t = translations[currentLang];
+            const trialForm = document.getElementById('trialForm');
+            if (trialForm) {
+                trialForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    window.location.href = '/login';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

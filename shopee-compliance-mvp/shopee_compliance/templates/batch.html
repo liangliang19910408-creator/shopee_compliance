@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batch Scan - Shopee Compliance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        html, body { height: 100%; overflow-y: auto; }
+        body { -webkit-overflow-scrolling: touch; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+        .card-gradient {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        }
+        .btn-gradient {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+        .btn-gradient:hover {
+            background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+        }
+        .input-dark {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.05);
+        }
+        .upload-area.dragover {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.1);
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        .risk-high { background-color: #ef4444; }
+        .risk-medium { background-color: #f59e0b; }
+        .risk-low { background-color: #3b82f6; }
+        .risk-safe { background-color: #10b981; }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #92400e;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(-10px);
+            z-index: 1000;
+            max-width: 400px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body class="gradient-bg text-white min-h-screen">
+
+    <nav class="w-full bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center">
+                    <span class="text-xs font-bold">SC</span>
+                </div>
+                <span class="font-semibold text-lg">Compliance Checker</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/scan" class="text-sm text-slate-400 hover:text-white transition">Single Scan</a>
+                <a href="/batch" class="text-sm text-indigo-400 font-medium">Batch Scan</a>
+                <div id="authButton" class="text-sm">
+                    <button onclick="window.location.href='/login'" class="text-slate-400 hover:text-white transition">Log in</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div id="toastContainer"></div>
+
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-bold mb-2">Batch Title Scan</h1>
+            <p class="text-slate-400 text-sm">Upload a CSV file to scan multiple product titles at once</p>
+        </div>
+
+        <div class="space-y-6">
+            <div class="card-gradient rounded-2xl p-6">
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <div class="flex-1">
+                        <div 
+                            id="uploadArea" 
+                            class="upload-area rounded-xl p-8 text-center cursor-pointer"
+                            onclick="document.getElementById('fileInput').click()"
+                            ondragover="event.preventDefault(); this.classList.add('dragover')"
+                            ondragleave="this.classList.remove('dragover')"
+                            ondrop="handleDrop(event)"
+                        >
+                            <div class="text-indigo-400 mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                            </div>
+                            <p class="font-medium text-white mb-1">Click or drag CSV file here</p>
+                            <p class="text-slate-400 text-sm">Supported: .csv files, max 200 rows</p>
+                            <input type="file" id="fileInput" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
+                        </div>
+
+                        <div id="fileInfo" class="hidden mt-4 p-4 rounded-xl bg-slate-800/50 border border-slate-600/30">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p id="fileName" class="font-medium text-white"></p>
+                                        <p id="fileRows" class="text-slate-400 text-sm"></p>
+                                    </div>
+                                </div>
+                                <button onclick="clearFile()" class="text-slate-400 hover:text-white text-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div id="previewSection" class="hidden">
+                                <p class="text-xs text-slate-400 mb-2">Preview (first 5 rows):</p>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm">
+                                        <thead>
+                                            <tr class="border-b border-slate-600">
+                                                <th class="text-left py-2 px-3 text-slate-400 font-medium">#</th>
+                                                <th class="text-left py-2 px-3 text-slate-400 font-medium">Title</th>
+                                                <th class="text-left py-2 px-3 text-slate-400 font-medium">URL</th>
+                                                <th class="text-left py-2 px-3 text-slate-400 font-medium">Category</th>
+                                                <th class="text-left py-2 px-3 text-slate-400 font-medium">Cost (RM)</th>
+                                                <th class="text-left py-2 px-3 text-slate-400 font-medium">Price (RM)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="previewTableBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:w-64">
+                        <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-600/30">
+                            <p class="text-sm text-slate-400 mb-3">Need a template?</p>
+                            <a 
+                                href="/api/batch/download-template" 
+                                class="flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-slate-700 hover:bg-slate-600 transition text-sm font-medium"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download Template
+                            </a>
+                            <p class="text-xs text-slate-500 mt-3">
+                                CSV format:<br>
+                                <span class="text-slate-300">title</span> (required)<br>
+                                <span class="text-slate-300">url</span> (optional)<br>
+                                <span class="text-slate-300">category</span> (optional)
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="scanControl" class="hidden card-gradient rounded-2xl p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <p class="text-sm text-slate-400">Total rows to scan</p>
+                        <p class="text-2xl font-bold text-white" id="totalRows">0</p>
+                    </div>
+                    <button 
+                        id="startScanBtn"
+                        onclick="startScan()"
+                        class="px-8 py-3 btn-gradient rounded-xl font-semibold text-white hover:opacity-90 transition flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Start Scan
+                    </button>
+                </div>
+
+                <div id="progressSection" class="hidden mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-slate-400" id="progressText">Scanning... 0%</span>
+                        <span class="text-sm text-slate-400" id="progressCount">0/0</span>
+                    </div>
+                    <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div id="progressBar" class="h-full bg-indigo-500 progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultsSection" class="hidden">
+                <div class="card-gradient rounded-2xl p-6">
+                    <h3 class="font-semibold text-lg mb-4">Scan Results</h3>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                        <div class="bg-slate-800/50 rounded-xl p-4 text-center">
+                            <div class="text-2xl font-bold text-white" id="statTotal">0</div>
+                            <div class="text-xs text-slate-400">Total</div>
+                        </div>
+                        <div class="bg-red-500/10 rounded-xl p-4 text-center border border-red-500/20">
+                            <div class="text-2xl font-bold text-red-400" id="statHigh">0</div>
+                            <div class="text-xs text-red-400">High Risk</div>
+                        </div>
+                        <div class="bg-amber-500/10 rounded-xl p-4 text-center border border-amber-500/20">
+                            <div class="text-2xl font-bold text-amber-400" id="statMedium">0</div>
+                            <div class="text-xs text-amber-400">Medium Risk</div>
+                        </div>
+                        <div class="bg-blue-500/10 rounded-xl p-4 text-center border border-blue-500/20">
+                            <div class="text-2xl font-bold text-blue-400" id="statLow">0</div>
+                            <div class="text-xs text-blue-400">Low Risk</div>
+                        </div>
+                        <div class="bg-green-500/10 rounded-xl p-4 text-center border border-green-500/20">
+                            <div class="text-2xl font-bold text-green-400" id="statSafe">0</div>
+                            <div class="text-xs text-green-400">Safe</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end mb-4">
+                        <button 
+                            id="downloadResultsBtn"
+                            onclick="downloadResults()"
+                            class="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Download Results
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-600">
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">#</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">Title</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">URL</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">Category</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">Risk Level</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">Score</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">Violations</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="noAccessSection" class="hidden card-gradient rounded-2xl p-6 text-center">
+                <div class="text-amber-400 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="font-semibold text-lg mb-2" data-i18n="batchProOnly">Batch Scan is a Pro Feature</h3>
+                <p class="text-slate-400 text-sm mb-4" data-i18n="batchUpgradeHint">Upgrade to Pro for unlimited batch scans (up to 200 items per file)</p>
+                <a href="#" onclick="handleUpgradeFromBatch()" class="inline-flex items-center gap-2 px-6 py-3 btn-gradient rounded-xl font-semibold text-white hover:opacity-90 transition">
+                    <span data-i18n="upgradeNow">Upgrade to Pro</span>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let csvData = [];
+        let currentJobId = null;
+        let pollInterval = null;
+        let currentLang = localStorage.getItem('lang') || 'en';
+
+        const WHATSAPP_LINK = 'https://wa.me/yournumber';
+
+        const translations = {
+            en: {
+                batchProOnly: 'Batch Scan is a Pro Feature',
+                batchUpgradeHint: 'Upgrade to Pro for unlimited batch scans (up to 200 items per file)',
+                upgradeNow: 'Upgrade to Pro',
+                batchUploadTitle: 'Batch Title Scan',
+                batchUploadSubtitle: 'Upload a CSV file to scan multiple product titles at once',
+                batchProLockToast: '🔒 Batch scanning is a Pro feature.',
+                batchUpgradeAction: 'Upgrade to Pro',
+                batchHelpAction: 'Get help'
+            },
+            zh: {
+                batchProOnly: '批量扫描是 Pro 功能',
+                batchUpgradeHint: '升级 Pro 享受无限批量扫描（每次最多200条）',
+                upgradeNow: '升级 Pro',
+                batchUploadTitle: '批量标题扫描',
+                batchUploadSubtitle: '上传 CSV 文件，一次扫描多个商品标题',
+                batchProLockToast: '🔒 批量扫描为 Pro 专属功能。',
+                batchUpgradeAction: '升级 Pro',
+                batchHelpAction: '获取帮助'
+            }
+        };
+
+        function applyLanguage(lang) {
+            const t = translations[lang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    el.textContent = t[key];
+                }
+            });
+        }
+
+        function showToast(message, actions = []) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `
+                <span>${message}</span>
+                <div class="flex gap-2 mt-2">
+                    ${actions.map(a => `<a href="${a.url}" target="${a.target || '_self'}" class="text-indigo-600 hover:text-indigo-700 font-semibold text-sm">${a.text}</a>`).join(' ')}
+                </div>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        function showProLockToast() {
+            const t = translations[currentLang];
+            showToast(t.batchProLockToast, [
+                { text: t.batchUpgradeAction, url: '/pricing/pay#pro' },
+                { text: t.batchHelpAction, url: WHATSAPP_LINK, target: '_blank' }
+            ]);
+        }
+
+        function isProUser(data) {
+            if (!data || !data.logged_in) return false;
+            const now = new Date().getTime();
+            return data.status === 'paid' || 
+                (data.status === 'trial' && data.trial_end && new Date(data.trial_end).getTime() > now);
+        }
+
+        async function checkLoginStatus() {
+            try {
+                const res = await fetch('/api/user/info');
+                const data = await res.json();
+                
+                const authBtn = document.getElementById('authButton');
+                const scanControl = document.getElementById('scanControl');
+                const noAccessSection = document.getElementById('noAccessSection');
+
+                if (data.logged_in) {
+                    authBtn.innerHTML = `<span class="text-sm text-indigo-400">${data.email}</span>`;
+                    
+                    const isPro = isProUser(data);
+                    
+                    if (isPro) {
+                        scanControl.classList.remove('hidden');
+                        noAccessSection.classList.add('hidden');
+                    } else {
+                        window.location.href = '/pricing/pay#pro';
+                        return;
+                    }
+                } else {
+                    window.location.href = '/login';
+                    return;
+                }
+            } catch (e) {
+                console.error('Login check failed:', e);
+            }
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            document.getElementById('uploadArea').classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0 && files[0].name.endsWith('.csv')) {
+                processFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                processFile(file);
+            }
+        }
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                
+                if (!headers.includes('title')) {
+                    alert('CSV must contain a "title" column');
+                    return;
+                }
+
+                csvData = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const values = parseCSVLine(line);
+                    const row = {};
+                    headers.forEach((h, idx) => {
+                        row[h] = values[idx] || '';
+                    });
+                    
+                    if (row.title && row.title.trim()) {
+                    let cost_rm = null;
+                    let price_rm = null;
+                    if (row.cost_rm) {
+                        try { cost_rm = parseFloat(row.cost_rm.trim()); } catch(e) {}
+                    }
+                    if (row.price_rm) {
+                        try { price_rm = parseFloat(row.price_rm.trim()); } catch(e) {}
+                    }
+                    csvData.push({
+                        title: row.title.trim(),
+                        url: (row.url || '').trim(),
+                        category: (row.category || '').trim(),
+                        cost_rm: cost_rm,
+                        price_rm: price_rm
+                    });
+                }
+
+                if (csvData.length > 200) {
+                    alert('Maximum 200 rows allowed');
+                    csvData = [];
+                    return;
+                }
+
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileRows').textContent = `${csvData.length} rows`;
+                document.getElementById('totalRows').textContent = csvData.length;
+                
+                document.getElementById('fileInfo').classList.remove('hidden');
+                document.getElementById('previewSection').classList.remove('hidden');
+                
+                renderPreview();
+                checkLoginStatus();
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"' && inQuotes && line[i + 1] === '"') {
+                    current += '"';
+                    i++;
+                } else if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            
+            return result;
+        }
+
+        function renderPreview() {
+            const tbody = document.getElementById('previewTableBody');
+            tbody.innerHTML = '';
+            
+            const previewData = csvData.slice(0, 5);
+            
+            previewData.forEach((item, idx) => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-slate-700/50';
+                row.innerHTML = `
+                    <td class="py-2 px-3 text-slate-400">${idx + 1}</td>
+                    <td class="py-2 px-3 text-white truncate max-w-xs">${item.title}</td>
+                    <td class="py-2 px-3 text-slate-400 truncate max-w-xs">${item.url || '-'}</td>
+                    <td class="py-2 px-3 text-slate-400">${item.category || '-'}</td>
+                    <td class="py-2 px-3 text-slate-400">${item.cost_rm != null ? item.cost_rm.toFixed(2) : '-'}</td>
+                    <td class="py-2 px-3 text-slate-400">${item.price_rm != null ? item.price_rm.toFixed(2) : '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            if (csvData.length > 5) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="6" class="py-2 px-3 text-slate-500 text-sm">... and ${csvData.length - 5} more rows</td>`;
+                tbody.appendChild(row);
+            }
+        }
+
+        function clearFile() {
+            csvData = [];
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('previewSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('startScanBtn').disabled = false;
+            document.getElementById('startScanBtn').innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Start Scan
+            `;
+            document.getElementById('progressSection').classList.add('hidden');
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+
+        async function startScan() {
+            if (csvData.length === 0) return;
+
+            const btn = document.getElementById('startScanBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Uploading...';
+
+            try {
+                const csvContent = csvData.map(row => [row.title, row.url, row.category, row.cost_rm || '', row.price_rm || ''].join(',')).join('\n');
+                const blob = new Blob(['title,url,category,cost_rm,price_rm\n' + csvContent], { type: 'text/csv' });
+                const formData = new FormData();
+                formData.append('file', blob, 'batch_scan.csv');
+
+                const uploadRes = await fetch('/api/batch/upload', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+
+                if (!uploadRes.ok) {
+                    const error = await uploadRes.json();
+                    if (uploadRes.status === 403 || (error && (error.upgrade || (error.detail && error.detail.upgrade)))) {
+                        throw new Error('Pro required');
+                    }
+                    throw new Error(error.detail || error.error || 'Upload failed');
+                }
+
+                const uploadData = await uploadRes.json();
+                currentJobId = uploadData.job_id;
+
+                const startRes = await fetch(`/api/batch/job/${currentJobId}/start`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (!startRes.ok) {
+                    throw new Error('Failed to start scan');
+                }
+
+                document.getElementById('progressSection').classList.remove('hidden');
+                btn.innerHTML = '<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Scanning...';
+                
+                pollProgress();
+
+            } catch (e) {
+                const errorMsg = e.message || '';
+                if (errorMsg.includes('Pro required') || errorMsg.includes('upgrade')) {
+                    showProLockToast();
+                } else {
+                    showToast(errorMsg);
+                }
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Start Scan
+                `;
+            }
+        }
+
+        function pollProgress() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/batch/job/${currentJobId}`, {
+                        credentials: 'include'
+                    });
+
+                    if (!res.ok) {
+                        throw new Error('Failed to get status');
+                    }
+
+                    const data = await res.json();
+                    const progress = data.progress;
+                    const processed = data.processed_items;
+                    const total = data.total_items;
+
+                    document.getElementById('progressBar').style.width = `${progress}%`;
+                    document.getElementById('progressText').textContent = `Scanning... ${progress}%`;
+                    document.getElementById('progressCount').textContent = `${processed}/${total}`;
+
+                    const btn = document.getElementById('startScanBtn');
+                    btn.innerHTML = `<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Scanning... ${progress}%`;
+
+                    if (data.status === 'completed') {
+                        clearInterval(pollInterval);
+                        btn.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Scan Complete
+                        `;
+                        loadResults();
+                    } else if (data.status === 'failed') {
+                        clearInterval(pollInterval);
+                        alert('Batch scan failed');
+                        btn.disabled = false;
+                        btn.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Start Scan
+                        `;
+                    }
+
+                } catch (e) {
+                    console.error('Poll failed:', e);
+                }
+            }, 1500);
+        }
+
+        async function loadResults() {
+            try {
+                const res = await fetch(`/api/batch/job/${currentJobId}/results`, {
+                    credentials: 'include'
+                });
+
+                if (!res.ok) {
+                    throw new Error('Failed to load results');
+                }
+
+                const data = await res.json();
+
+                document.getElementById('statTotal').textContent = data.summary.total;
+                document.getElementById('statHigh').textContent = data.summary.high;
+                document.getElementById('statMedium').textContent = data.summary.medium;
+                document.getElementById('statLow').textContent = data.summary.low;
+                document.getElementById('statSafe').textContent = data.summary.safe;
+
+                const tbody = document.getElementById('resultsTableBody');
+                tbody.innerHTML = '';
+
+                data.items.forEach((item, idx) => {
+                    const riskLevel = item.risk_level || 'safe';
+                    const riskColors = {
+                        high: 'bg-red-500/20 text-red-400 border-red-500/30',
+                        medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                        low: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                        safe: 'bg-green-500/20 text-green-400 border-green-500/30'
+                    };
+                    const riskLabels = {
+                        high: 'High',
+                        medium: 'Medium',
+                        low: 'Low',
+                        safe: 'Safe'
+                    };
+
+                    let violationsHtml = '-';
+                    if (item.violations) {
+                        try {
+                            const violations = typeof item.violations === 'string' ? JSON.parse(item.violations) : item.violations;
+                            if (violations.length > 0) {
+                                violationsHtml = violations.slice(0, 3).map(v => v.word || v).join(', ');
+                                if (violations.length > 3) {
+                                    violationsHtml += `... (${violations.length} total)`;
+                                }
+                            }
+                        } catch (e) {
+                            violationsHtml = item.violations;
+                        }
+                    }
+
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-slate-700/50';
+                    row.innerHTML = `
+                        <td class="py-2 px-3 text-slate-400">${idx + 1}</td>
+                        <td class="py-2 px-3 text-white truncate max-w-xs">${item.title}</td>
+                        <td class="py-2 px-3 text-slate-400 truncate max-w-xs">${item.url || '-'}</td>
+                        <td class="py-2 px-3 text-slate-400">${item.category || '-'}</td>
+                        <td class="py-2 px-3">
+                            <span class="px-2 py-0.5 rounded text-xs font-medium border ${riskColors[riskLevel]}">
+                                ${riskLabels[riskLevel]}
+                            </span>
+                        </td>
+                        <td class="py-2 px-3 text-white">${item.score || 100}</td>
+                        <td class="py-2 px-3 text-slate-400 text-xs max-w-xs">${violationsHtml}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('resultsSection').classList.remove('hidden');
+
+            } catch (e) {
+                alert('Failed to load results: ' + e.message);
+            }
+        }
+
+        function downloadResults() {
+            if (!currentJobId) return;
+            
+            const link = document.createElement('a');
+            link.href = `/api/batch/job/${currentJobId}/download-results`;
+            link.target = '_blank';
+            link.download = `batch_results_${currentJobId}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        applyLanguage(currentLang);
+        checkLoginStatus();
+
+        async function handleUpgradeFromBatch() {
+            try {
+                await fetch('/api/upgrade-clicked', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_page: 'batch', button_position: 'pro_required_section' })
+                });
+            } catch (e) {}
+            window.location.href = '/pricing/#pro';
+        }
+    </script>
+</body>
+</html>

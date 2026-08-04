@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "lastUpdate": "2026-07-13",
+    "nextUpdate": "2026-08-01",
+    "pageTitle": "Shopee & Lazada 马来西亚运营干货库 | ComplianceMY"
+  },
+  "hotKeywords": {
+    "anchorId": "selection",
+    "title": "📈 本周马来站热搜词趋势（2026年7月）",
+    "note": "数据源自平台热搜榜，定期更新。选品不仅要看热度，更要看合规性。",
+    "list": [
+      { "keyword": "Hijab Ready Stock", "platform": "Shopee/TikTok", "trend": "up", "heat": "🔥🔥🔥", "note": "开学季刚需，务必确保备货真实，避免虚假宣传罚分。" },
+      { "keyword": "Phone Case Samsung", "platform": "Shopee/Lazada", "trend": "stable", "heat": "🔥🔥", "note": "3C类目常青树，注意避免使用'Original'等无授权词汇。" },
+      { "keyword": "Kitchen Rack", "platform": "Shopee", "trend": "up", "heat": "🔥🔥", "note": "家居品类增长快，客单价适中，利润空间较好。" },
+      { "keyword": "Skincare Moisturizer", "platform": "Shopee/TikTok", "trend": "up", "heat": "🔥🔥🔥", "note": "美妆个护复购率高，需严格符合马来Halal及NPRA合规要求。" },
+      { "keyword": "Baby Diapers", "platform": "Lazada", "trend": "stable", "heat": "🔥🔥", "note": "母婴刚需，家庭需求旺盛，注意价格稳定性。" }
+    ]
+  },
+  "complianceAlerts": {
+    "anchorId": "compliance",
+    "title": "⚠️ 最新合规预警（2026年7月）",
+    "list": [
+      { "type": "Lazada扣分机制", "content": "累计48分永久封店，12分即禁止上新7天。申诉时效短（侵权仅7天），务必重视。", "level": "critical" },
+      { "type": "Shopee罚分系统", "content": "罚分累计制，新店前90天免佣但罚分照旧。误用'Original'等词可能导致RM 2000损失。", "level": "critical" },
+      { "type": "导流行为严打", "content": "在描述、图片或聊天中放置WhatsApp/微信/外部链接，直接判定违规。", "level": "high" },
+      { "type": "价格异常监控", "content": "原价虚高再打折或设置异常低价，将被判定为误导性信息。", "level": "medium" }
+    ]
+  },
+  "complianceWords": {
+    "title": "🚫 高频违规词速查表（完整72+词库见工具）",
+    "list": [
+      { "word": "正品/Authentic/Original/Genuine", "risk": "严重", "replace": "High Quality / Premium", "case": "卖家A因无授权使用'Original'，被罚6分，下架3天，损失RM 2000。" },
+      { "word": "全球第一/最佳/Best/No.1", "risk": "严重", "replace": "Popular / Trending", "case": "虚假宣传与绝对化用语，双平台均直接下架+罚分。" },
+      { "word": "独家/Exclusive", "risk": "严重", "replace": "Special Edition", "case": "无品牌授权使用，触发假冒风险。" },
+      { "word": "限时抢购/Flash Sale", "risk": "中等", "replace": "Special Offer", "case": "Lazada明确禁止的诱导性词语。" },
+      { "word": "必买/Must Buy", "risk": "中等", "replace": "Recommended", "case": "制造虚假紧迫感，误导买家。" },
+      { "word": "A货/高仿/Replica", "risk": "严重", "replace": "N/A (禁止上架)", "case": "假冒商品，直接导致永久封店。" }
+    ]
+  },
+  "selectionInsights": {
+    "title": "💡 选品核心逻辑（2026马来站）",
+    "platforms": [
+      { "name": "Shopee MY", "share": "主导", "position": "移动端优先，适合平价走量、中小卖家，轻小件物流成本低。" },
+      { "name": "Lazada MY", "share": "稳固", "position": "注重品质与服务，适合品牌精品，客单价较高。" }
+    ],
+    "seasonal": {
+      "title": "🗓️ 2026 季度选品节点",
+      "list": [
+        { "month": "7-8月", "event": "返校季 Back to School", "suggest": "文具、书包、水壶、电脑配件、制服相关。" },
+        { "month": "9-10月", "event": "马来国庆+中秋", "suggest": "国旗装饰、礼品、传统服饰、月饼模具。" },
+        { "month": "11-12月", "event": "11.11 + 12.12 + 开斋节备货", "suggest": "全品类冲量，重点关注家居、美妆、礼品、服饰。" }
+      ]
+    },
+    "mistakes": [
+      "压货积压：选了卖不动的品，资金周转困难。",
+      "亏本清仓：未算清SLMe运费、佣金及广告费，扣除后倒亏。",
+      "信心受挫：首批货亏损，容易放弃整个马来市场。",
+      "合规疏忽：选品时未排查侵权风险，导致上架即违规。"
+    ],
+    "methods": [
+      { "name": "平台热销榜", "desc": "查看Shopee商业洞察/Lazada数据中心的前20名共性，而非仅看第1名。注意市场饱和度。" },
+      { "name": "关键词趋势", "desc": "利用搜索框下拉词（如'hijab murah'）判断真需求（持续稳定）vs假热度（短期爆发）。" },
+      { "name": "货源与成本", "desc": "精确计算成本结构（商品成本+SLMe运费+6-10%佣金+广告费+退货损耗），确保净利为正。" }
+    ]
+  },
+  "tips": {
+    "title": "📝 运营冷知识",
+    "list": [
+      { "title": "新店免佣≠免罚分", "content": "Shopee新店前90天虽享免佣优惠，但罚分系统与老店完全一致。切勿因免佣放松合规审查。" },
+      { "title": "Ready Stock的真实性", "content": "若实际备货天数>3天却使用'Ready Stock'，可能触发虚假宣传判定。请根据实际情况调整。" },
+      { "title": "上架前3秒原则", "content": "上架前花3秒扫描标题，比下架后申诉省100倍时间。工具支持粘贴链接自动提取标题。" },
+      { "title": "词库持续更新", "content": "平台规则动态调整，合规词库会持续更新。误报可通过申诉通道反馈。" }
+    ]
+  },
+  "cta": {
+    "primary": { "text": "免费试用7天Pro，自动扫描72+违规词", "url": "/?utm_source=site_guide&utm_medium=cta_primary" },
+    "pdfSafety": { "text": "下载完整《封店避坑指南》PDF", "url": "/?utm_source=pdf_safety&utm_medium=pdf_download" },
+    "pdfSelection": { "text": "下载完整《选品运营指南》PDF", "url": "/?utm_source=pdf_guide&utm_medium=pdf_download" }
+  }
+}

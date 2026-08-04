@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Compliance MY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        html, body { height: 100%; scroll-behavior: smooth; }
+
+        /* Layout - explicit media query for reliable cross-browser support */
+        body.layout {
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 100vh !important;
+            margin: 0 !important;
+        }
+        @media (min-width: 768px) {
+            body.layout { flex-direction: row !important; }
+        }
+        aside.brand-aside {
+            display: none !important;
+        }
+        @media (min-width: 768px) {
+            aside.brand-aside {
+                display: flex !important;
+                width: 60% !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+            }
+        }
+        main.form-main {
+            width: 100% !important;
+        }
+        @media (min-width: 768px) {
+            main.form-main { width: 40% !important; }
+        }
+        .mobile-logo {
+            display: inline-flex !important;
+        }
+        @media (min-width: 768px) {
+            .mobile-logo { display: none !important; }
+        }
+
+        .brand-bg {
+            background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 50%, #3B82F6 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .brand-bg::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(238, 77, 45, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .brand-bg::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+        }
+        .brand-content {
+            position: relative;
+            z-index: 1;
+        }
+        .form-bg {
+            background: #F9FAFB;
+        }
+        .form-card {
+            background: #FFFFFF;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+        }
+        .input-light {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            transition: all 0.2s ease;
+        }
+        .input-light:focus {
+            background: #FFFFFF;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+            outline: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+        }
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .tab-btn {
+            color: #6B7280;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            color: #2563EB;
+            border-bottom-color: #2563EB;
+        }
+        .tab-btn:hover:not(.active) {
+            color: #374151;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: #DC2626;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(220, 38, 38, 0.3);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @media (pointer: coarse) {
+            input, button { min-height: 44px; }
+        }
+    </style>
+</head>
+<body class="layout">
+
+    <!-- Left: Brand Section (60% on desktop, hidden on mobile) -->
+    <aside class="brand-bg brand-aside p-8 lg:p-12 text-white">
+        <div class="brand-content">
+            <!-- Logo -->
+            <a href="/" class="inline-flex items-center gap-2 mb-12">
+                <div class="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-bold text-base border border-white/20">
+                    C
+                </div>
+                <span class="font-bold text-xl">Compliance MY</span>
+            </a>
+
+            <!-- Headline -->
+            <h1 class="text-3xl lg:text-5xl font-extrabold leading-tight mb-4" data-i18n="brandTitle">
+                Protect Your Shop From Unexpected Bans.
+            </h1>
+            <p class="text-base lg:text-lg text-blue-100 max-w-md leading-relaxed" data-i18n="brandSubtitle">
+                The simplest way to check Shopee & Lazada listing risks.
+            </p>
+
+            <!-- Illustration -->
+            <div class="mt-10 max-w-md">
+                <img src="https://images.unsplash.com/photo-1556740758-90de374c12ad?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+                     alt="Shopee seller smiling while working on laptop"
+                     class="w-full h-64 lg:h-80 object-cover rounded-2xl shadow-2xl border border-white/20"
+                     onerror="this.style.display='none'">
+            </div>
+        </div>
+
+        <!-- Footer Note -->
+        <div class="brand-content pt-6">
+            <div class="flex items-center gap-4 text-xs text-blue-200">
+                <span class="flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span data-i18n="trust1">Free 10 scans/day</span>
+                </span>
+                <span class="flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span data-i18n="trust2">No credit card</span>
+                </span>
+                <span class="flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span data-i18n="trust3">Trusted by 2,000+ sellers</span>
+                </span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Right: Form Section (40% on desktop, full width on mobile) -->
+    <main class="form-bg form-main flex flex-col items-center justify-center p-6 sm:p-8 min-h-screen">
+
+        <!-- Mobile Logo (only on mobile) -->
+        <a href="/" class="mobile-logo items-center gap-2 mb-8 self-start">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center font-bold text-white text-sm">
+                C
+            </div>
+            <span class="font-bold text-lg text-slate-900">Compliance MY</span>
+        </a>
+
+        <!-- Top bar: Back & Language -->
+        <div class="w-full max-w-sm flex justify-between items-center mb-6">
+            <a href="/" class="inline-flex items-center text-slate-500 hover:text-slate-700 text-sm transition">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                <span data-i18n="backHome">Back</span>
+            </a>
+            <button id="langToggle" onclick="toggleLanguage()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 transition text-sm font-medium border border-slate-200">
+                <span>🌐</span>
+                <span id="langLabel">EN</span>
+            </button>
+        </div>
+
+        <!-- Form Card -->
+        <div class="form-card w-full max-w-sm rounded-2xl p-7 sm:p-8">
+
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-200 mb-6">
+                <button type="button" id="tabLogin" onclick="switchTab('login')" class="tab-btn active flex-1 pb-3 text-sm font-semibold">
+                    <span data-i18n="tabLogin">Login</span>
+                </button>
+                <button type="button" id="tabRegister" onclick="switchTab('register')" class="tab-btn flex-1 pb-3 text-sm font-semibold">
+                    <span data-i18n="tabRegister">Register</span>
+                </button>
+            </div>
+
+            <!-- Header -->
+            <div class="mb-6">
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-1" data-i18n="formTitle">Welcome back</h2>
+                <p class="text-slate-500 text-sm" data-i18n="formSubtitle">Sign in to access your dashboard.</p>
+            </div>
+
+            <!-- Form -->
+            <form id="authForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1.5" data-i18n="emailLabel">Email</label>
+                    <input id="email" type="email" required
+                        class="input-light w-full px-4 py-2.5 rounded-lg text-slate-900 placeholder-slate-400 text-sm"
+                        placeholder="you@example.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1.5" data-i18n="passwordLabel">Password</label>
+                    <input id="password" type="password" required
+                        class="input-light w-full px-4 py-2.5 rounded-lg text-slate-900 placeholder-slate-400 text-sm"
+                        placeholder="••••••••">
+                </div>
+
+                <!-- Confirm password (register tab only) -->
+                <div id="confirmPasswordRow" class="hidden">
+                    <label class="block text-xs font-medium text-slate-700 mb-1.5" data-i18n="confirmPasswordLabel">Confirm Password</label>
+                    <input id="confirmPassword" type="password"
+                        class="input-light w-full px-4 py-2.5 rounded-lg text-slate-900 placeholder-slate-400 text-sm"
+                        placeholder="••••••••">
+                    <p class="text-xs text-slate-500 mt-1.5" data-i18n="passwordHint">Min 8 characters, with letters and numbers</p>
+                </div>
+
+                <!-- Forgot password (login tab only) -->
+                <div id="forgotRow" class="flex justify-end">
+                    <a href="#" onclick="event.preventDefault(); handleForgot()" class="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                        <span data-i18n="forgotPassword">Forgot password?</span>
+                    </a>
+                </div>
+
+                <button type="submit" id="submitBtn"
+                    class="btn-primary w-full py-3 text-white font-semibold rounded-lg transition text-sm flex items-center justify-center gap-2">
+                    <span id="submitBtnText" data-i18n="loginBtn">Sign In</span>
+                    <span id="submitSpinner" class="spinner hidden"></span>
+                </button>
+            </form>
+
+            <!-- Footer note -->
+            <p class="text-center text-xs text-slate-500 mt-5" data-i18n="freeNote">Free plan available. No credit card required.</p>
+        </div>
+
+        <!-- Footer -->
+        <p class="text-center text-[11px] text-slate-400 mt-6 px-4 max-w-xs" data-i18n="footerDisclaimer">
+            By signing in, you agree to our Terms of Service and Privacy Policy.
+        </p>
+
+    </main>
+
+    <!-- Toast -->
+    <div id="errorToast" class="toast">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        <span id="toastText">Invalid email or password</span>
+    </div>
+
+    <script src="/static/login.js?v=2"></script>
+</body>
+</html>

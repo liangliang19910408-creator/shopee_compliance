@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>加载中…</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body { font-size: 1rem; line-height: 1.6; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    /* 折叠面板 */
+    .acc-item { 
+      overflow: hidden !important; 
+      position: relative;
+      height: auto;
+      clip-path: inset(0 0 0 0);
+    }
+    .acc-item:not(.open) .acc-body { 
+      max-height: 0 !important; 
+      overflow: hidden !important; 
+      opacity: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      line-height: 0 !important;
+      display: block !important;
+    }
+    .acc-item.open .acc-body { 
+      max-height: 1000px !important; 
+      opacity: 1 !important;
+      padding-left: 1.25rem !important;
+      padding-right: 1.25rem !important;
+      padding-bottom: 1.25rem !important;
+      line-height: 1.6 !important;
+    }
+    .acc-item .acc-head::after {
+      content: "";
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid currentColor;
+      transition: transform .2s ease;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .acc-item.open .acc-head::after {
+      transform: rotate(180deg);
+    }
+    .acc-item:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      background-color: rgba(99, 102, 241, 0.02);
+    }
+    /* 锚点偏移，避免被顶部导航遮挡 */
+    :target { scroll-margin-top: 80px; }
+    section[id], div[id] { scroll-margin-top: 80px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+  <div id="app" class="min-h-screen flex items-center justify-center text-slate-400">内容加载中…</div>
+  <button id="backToTop" aria-label="返回顶部" class="fixed bottom-6 right-6 z-50 hidden w-12 h-12 rounded-full bg-indigo-600 text-white text-xl shadow-lg hover:bg-indigo-700 focus:outline-none transition-opacity">↑</button>
+
+  <script>
+    "use strict";
+
+    const STORAGE_KEY = "compliancemy_guide_cache_v1";
+    let lastGood = null;
+
+    // 首屏先用本地缓存（若有），保证可见即可见内容
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) { lastGood = JSON.parse(cached); render(lastGood); }
+    } catch (e) { /* ignore */ }
+
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    const LEVEL_STYLE = {
+      critical: "bg-red-100 text-red-800 border-red-200",
+      high:     "bg-orange-100 text-orange-800 border-orange-200",
+      medium:   "bg-yellow-100 text-yellow-800 border-yellow-200"
+    };
+    function trendLabel(t) {
+      if (t === "up") return "📈 上升";
+      if (t === "down") return "📉 下降";
+      return "➡️ 平稳";
+    }
+
+    function render(d) {
+      const m = d.meta || {};
+      const cta = d.cta || {};
+      const primaryUrl = (cta.primary && cta.primary.url) || "#";
+      const primaryText = (cta.primary && cta.primary.text) || "免费试用";
+      const pdfSafety = cta.pdfSafety || {};
+      const pdfSelection = cta.pdfSelection || {};
+
+      // Header
+      const header = `
+      <header class="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-20">
+        <div class="max-w-3xl mx-auto px-4 py-4">
+          <h1 class="text-xl font-bold text-slate-900 leading-snug">${esc(m.pageTitle)}</h1>
+          <p class="text-xs text-slate-400 mt-1">最后更新：${esc(m.lastUpdate)} | 定期更新</p>
+          <div class="mt-4 flex flex-wrap items-center gap-4">
+            <a href="${esc(primaryUrl)}" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-colors">${esc(primaryText)}</a>
+            <nav class="text-sm">
+              <a href="#compliance" class="text-slate-600 hover:text-indigo-600 hover:underline transition-colors">合规避坑</a>
+              <span class="text-slate-200 mx-2">|</span>
+              <a href="#selection" class="text-slate-600 hover:text-indigo-600 hover:underline transition-colors">选品指南</a>
+            </nav>
+          </div>
+        </div>
+      </header>`;
+
+      // Section 1: 热搜风向标 (id=selection)
+      const hk = d.hotKeywords || {};
+      const hotCards = (hk.list || []).map(function (k) {
+        return `
+        <div class="bg-white rounded-xl border border-slate-100 p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
+          <div class="flex items-start justify-between gap-3">
+            <h3 class="text-base font-semibold text-slate-900">${esc(k.keyword)}</h3>
+            <span class="text-lg whitespace-nowrap">${esc(k.heat)}</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-500 font-medium uppercase tracking-wide">${esc(k.platform)} · ${trendLabel(k.trend)}</div>
+          <p class="mt-2 text-sm text-slate-600 leading-relaxed">${esc(k.note)}</p>
+        </div>`;
+      }).join("");
+      const sec1 = `
+      <section id="selection" class="max-w-3xl mx-auto px-4 py-8">
+        <h2 class="text-2xl font-bold text-slate-900">${esc(hk.title)}</h2>
+        <p class="mt-2 text-base text-slate-600">${esc(hk.note)}</p>
+        <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">${hotCards}</div>
+      </section>`;
+
+      // Section 2: 合规预警 (id=compliance)
+      const ca = d.complianceAlerts || {};
+      const alertCards = (ca.list || []).map(function (a) {
+        const cls = LEVEL_STYLE[a.level] || LEVEL_STYLE.medium;
+        return `
+        <div class="rounded-xl border-l-4 p-5 ${cls} shadow-sm">
+          <div class="font-semibold text-base">${esc(a.type)}</div>
+          <p class="mt-2 text-sm leading-relaxed">${esc(a.content)}</p>
+        </div>`;
+      }).join("");
+      const sec2 = `
+      <section id="compliance" class="max-w-3xl mx-auto px-4 py-8 border-t border-slate-100">
+        <h2 class="text-2xl font-bold text-slate-900">${esc(ca.title)}</h2>
+        <div class="mt-4 space-y-3">${alertCards}</div>
+        <p class="mt-3 text-sm text-slate-500">完整72+违规词库及实时罚分案例，请使用工具自动扫描。</p>
+      </section>`;
+
+      // Section 3: 高频违规词 (id=compliance-words)
+      const cw = d.complianceWords || {};
+      const wordRows = (cw.list || []).map(function (w) {
+        return `
+        <tr class="border-t border-slate-200">
+          <td class="px-3 py-2 text-base font-medium text-slate-900">${esc(w.word)}</td>
+          <td class="px-3 py-2 text-base ${w.risk === "严重" ? "text-red-600 font-semibold" : "text-orange-600"}">${esc(w.risk)}</td>
+          <td class="px-3 py-2 text-base text-slate-700">${esc(w.replace)}</td>
+          <td class="px-3 py-2 text-base text-slate-600">${esc(w.case)}</td>
+        </tr>`;
+      }).join("");
+      const sec3 = `
+      <section id="compliance-words" class="max-w-3xl mx-auto px-4 py-8 border-t border-slate-100">
+        <h2 class="text-2xl font-bold text-slate-900">${esc(cw.title)}</h2>
+        <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-left bg-white">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="px-3 py-2 text-base">违规词</th>
+                <th class="px-3 py-2 text-base">风险</th>
+                <th class="px-3 py-2 text-base">建议替换</th>
+                <th class="px-3 py-2 text-base">案例</th>
+              </tr>
+            </thead>
+            <tbody>${wordRows}</tbody>
+          </table>
+        </div>
+        <p class="mt-3 text-base text-slate-500">以上仅为节选，完整词库请使用工具扫描。</p>
+      </section>`;
+
+      // Section 4: 选品核心逻辑 (id=selection-insights)
+      const si = d.selectionInsights || {};
+      const platformCards = (si.platforms || []).map(function (p) {
+        return `
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+          <div class="font-semibold text-lg text-slate-900">${esc(p.name)} <span class="text-sm text-indigo-600">${esc(p.share)}</span></div>
+          <p class="mt-1 text-base text-slate-700">${esc(p.position)}</p>
+        </div>`;
+      }).join("");
+      const seasonal = si.seasonal || {};
+      const seasonalRows = (seasonal.list || []).map(function (s) {
+        return `
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="font-semibold text-base text-slate-900">${esc(s.month)} · ${esc(s.event)}</div>
+          <p class="mt-1 text-base text-slate-700">${esc(s.suggest)}</p>
+        </div>`;
+      }).join("");
+      const mistakeItems = (si.mistakes || []).map(function (x) {
+        return `<li class="text-base text-slate-700">${esc(x)}</li>`;
+      }).join("");
+      const methodItems = (si.methods || []).map(function (x) {
+        return `
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="font-semibold text-base text-slate-900">${esc(x.name)}</div>
+          <p class="mt-1 text-base text-slate-700">${esc(x.desc)}</p>
+        </div>`;
+      }).join("");
+      const sec4 = `
+      <section id="selection-insights" class="max-w-3xl mx-auto px-4 py-8 border-t border-slate-100">
+        <h2 class="text-2xl font-bold text-slate-900">${esc(si.title)}</h2>
+        <h3 class="mt-4 text-xl font-semibold text-slate-800">平台格局</h3>
+        <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">${platformCards}</div>
+        <h3 class="mt-6 text-xl font-semibold text-slate-800">${esc(seasonal.title)}</h3>
+        <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">${seasonalRows}</div>
+        <h3 class="mt-6 text-xl font-semibold text-slate-800">选品误区</h3>
+        <ul class="mt-2 list-disc pl-6 space-y-1">${mistakeItems}</ul>
+        <h3 class="mt-6 text-xl font-semibold text-slate-800">选品方法</h3>
+        <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">${methodItems}</div>
+      </section>`;
+
+      // Section 5: 运营冷知识 (Accordion)
+      const tips = d.tips || {};
+      const accItems = (tips.list || []).map(function (t, i) {
+        return `
+        <div class="acc-item bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow" data-acc>
+          <button class="acc-head w-full text-left px-5 py-4 font-semibold text-base text-slate-800 flex items-center justify-between gap-4" aria-expanded="false">
+            <span>${esc(t.title)}</span>
+          </button>
+          <div class="acc-body text-sm text-slate-600 leading-relaxed">${esc(t.content)}</div>
+        </div>`;
+      }).join("");
+      const sec5 = `
+      <section class="max-w-3xl mx-auto px-4 py-8 border-t border-slate-100">
+        <h2 class="text-2xl font-bold text-slate-900">${esc(tips.title)}</h2>
+        <div class="mt-4 space-y-3">${accItems}</div>
+      </section>`;
+
+      // Footer
+      const footer = `
+      <footer class="bg-white border-t border-slate-100 mt-8">
+        <div class="max-w-3xl mx-auto px-4 py-10 text-center">
+          <a href="${esc(primaryUrl)}" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-3 rounded-lg shadow-sm transition-all hover:shadow-md">${esc(primaryText)}</a>
+          <p class="mt-6 text-sm text-slate-500">© 2026 ComplianceMY</p>
+          <p class="mt-2 text-xs text-slate-400">内容定期更新，最新合规预警请使用工具扫描。</p>
+        </div>
+      </footer>`;
+
+      document.getElementById("app").outerHTML =
+      '<div id="app">' + header + sec1 + sec2 + sec3 + sec4 + sec5 + footer + '</div>';
+
+      document.title = m.pageTitle || "ComplianceMY";
+      bindAccordion();
+      resetAccordions();
+    }
+
+    function resetAccordions() {
+      document.querySelectorAll('[data-acc]').forEach(function (item) {
+        item.classList.remove('open');
+        const body = item.querySelector('.acc-body');
+        if (body) {
+          body.style.maxHeight = '0';
+          body.style.overflow = 'hidden';
+          body.style.opacity = '0';
+          body.style.padding = '0';
+          body.style.lineHeight = '0';
+        }
+        const btn = item.querySelector('.acc-head');
+        if (btn) {
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    function bindAccordion() {
+      document.querySelectorAll('[data-acc] .acc-head').forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const item = btn.closest("[data-acc]");
+          const body = item.querySelector('.acc-body');
+          const open = item.classList.toggle("open");
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+          if (open) {
+            body.style.maxHeight = '1000px';
+            body.style.overflow = 'visible';
+            body.style.opacity = '1';
+            body.style.paddingLeft = '1.25rem';
+            body.style.paddingRight = '1.25rem';
+            body.style.paddingBottom = '1.25rem';
+            body.style.lineHeight = '1.6';
+          } else {
+            body.style.maxHeight = '0';
+            body.style.overflow = 'hidden';
+            body.style.opacity = '0';
+            body.style.padding = '0';
+            body.style.lineHeight = '0';
+          }
+        });
+      });
+    }
+
+    // 返回顶部按钮
+    const backBtn = document.getElementById("backToTop");
+    window.addEventListener("scroll", () => {
+      backBtn.classList.toggle("hidden", window.scrollY < 600);
+    });
+    backBtn.addEventListener("click", () => {
+      scrollToId("selection");
+    });
+
+    // 平滑滚动 + 内置浏览器回退
+    function scrollToId(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // 优先用原生平滑滚动
+      if ('scrollBehavior' in document.documentElement.style) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // 回退逻辑：手动计算位置跳转
+        const top = el.getBoundingClientRect().top + window.pageYOffset - 20;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    }
+    document.addEventListener("click", function (e) {
+      const a = e.target.closest('a[href^="#"]');
+      if (!a) return;
+      const id = a.getAttribute("href").slice(1);
+      if (id) { e.preventDefault(); scrollToId(id); }
+    });
+
+    // 数据加载 + 容错
+    async function load() {
+      try {
+        const res = await fetch("./data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        lastGood = data;
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
+        render(data);
+      } catch (e) {
+        if (lastGood) {
+          render(lastGood); // 回退到缓存，不报错
+        } else {
+          document.getElementById("app").outerHTML =
+            '<div id="app" class="min-h-screen flex items-center justify-center text-slate-500 text-base px-4 text-center">内容暂时加载失败，请稍后刷新重试。</div>';
+        }
+      }
+    }
+
+    // 轮询：可见时每5分钟；隐藏暂停；恢复可见立即轮询一次
+    let timer = null;
+    function startPoll() { if (!timer) timer = setInterval(load, 5 * 60 * 1000); }
+    function stopPoll() { if (timer) { clearInterval(timer); timer = null; } }
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") { load(); startPoll(); }
+      else { stopPoll(); }
+    });
+
+    if (document.visibilityState === "visible") startPoll();
+    load();
+  </script>
+</body>
+</html>
