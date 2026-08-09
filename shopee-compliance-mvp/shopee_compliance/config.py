@@ -22,5 +22,5 @@ CREEM_WEBHOOK_SECRET = os.getenv("CREEM_WEBHOOK_SECRET", "whsec_71yUjEbb7lepCsDR
 CREEM_PRODUCT_MONTHLY = os.getenv("CREEM_PRODUCT_MONTHLY", "prod_2gQEav4HeQ159IqeeK8X1N")
 CREEM_API_BASE = os.getenv("CREEM_API_BASE", "https://test-api.creem.io")
 # 支付成功/取消跳转地址（开发环境用 localhost，生产环境通过环境变量覆盖）
-CREEM_SUCCESS_URL = os.getenv("CREEM_SUCCESS_URL", "https://www.compliancemy.com//success")
-CREEM_CANCEL_URL = os.getenv("CREEM_CANCEL_URL", "https://www.compliancemy.com//pricing/pay")
+CREEM_SUCCESS_URL = os.getenv("CREEM_SUCCESS_URL", "https://www.compliancemy.com/success")
+CREEM_CANCEL_URL = os.getenv("CREEM_CANCEL_URL", "https://www.compliancemy.com/pricing/pay")

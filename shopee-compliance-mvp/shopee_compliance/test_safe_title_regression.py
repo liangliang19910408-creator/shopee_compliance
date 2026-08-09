@@ -145,8 +145,8 @@ def test_full_regression():
         
         test_title = f"{word} Item"
         
-        include_lazada = "lazada_my" in tags and "_global" not in tags
-        violations = scan(test_title, "", "general", include_lazada)
+        platform = "lazada" if ("lazada_my" in tags and "_global" not in tags) else "shopee"
+        violations = scan(test_title, "", "general", platform=platform)
         
         safe_title = generate_safe_title(test_title, violations)
         

@@ -41,9 +41,13 @@ class ScanRequest(BaseModel):
     title: str = Field(..., description="商品标题")
     category: Optional[str] = Field(None, description="商品类目")
     description: Optional[str] = Field(None, description="商品描述")
-    include_lazada: bool = Field(False, description="是否包含 Lazada MY 规则")
+    platform: Optional[str] = Field("shopee", description="平台: shopee/lazada")
     cost_rm: Optional[float] = Field(None, description="预估成本价 (RM)")
     price_rm: Optional[float] = Field(None, description="预估售价 (RM)")
+    shipping_fee: Optional[float] = Field(None, description="买家支付的运费 (RM)")
+    shipping_cost: Optional[float] = Field(None, description="卖家发货成本 (RM)")
+    seller_type: Optional[str] = Field("marketplace", description="卖家类型: marketplace/mall")
+    cashback_enabled: Optional[bool] = Field(True, description="是否参与返现计划")
     source_type: Optional[str] = Field("text", description="来源类型：text/url")
     shop_id: Optional[str] = Field(None, description="Shopee店铺ID")
     item_id: Optional[str] = Field(None, description="Shopee商品ID")
@@ -82,6 +86,7 @@ class Violation(BaseModel):
     suggestion: Optional[str] = None
     reason: str
     safe_title_template: Optional[str] = None  # Safe Title 模板
+    rule_type: Optional[str] = None  # "hard_ban" / "soft_ban" / "review"
 
 
 class ScanResponse(BaseModel):
@@ -110,7 +115,7 @@ class ScanResponse(BaseModel):
     hygiene: Optional[List[dict]] = None  # [{"type": "title_length", "message": "..."}]
     # 当日扫描次数
     scan_count_today: int = 0
-    # 毛利计算结果
+    # 毛利计算结果（兼容旧字段）
     gross_profit_rm: Optional[float] = None
     margin_percent: Optional[float] = None
     margin_level: Optional[str] = None  # "High Margin" / "Medium Margin" / "Low Margin"
@@ -121,6 +126,28 @@ class ScanResponse(BaseModel):
     price_rm: Optional[float] = None
     # 免费版隐藏违规信息
     hidden_violations_info: Optional[dict] = None
+    # Phase 1 新增：利润分析（完整费用拆解）
+    profit_analysis: Optional[dict] = None  # ProfitResult.to_dict()
+    # Phase 1 新增：机会评分
+    opportunity_score: Optional[dict] = None  # OpportunityScore.to_dict()
+    # Phase 2 新增：洞察建议引擎
+    executive_summary: Optional[dict] = None  # {"level": "error/warning/success/info", "message": "...", "action": "..."}
+    dimension_tips: Optional[List[dict]] = None  # 分维度改进建议
+    is_pro: bool = False  # 是否为Pro用户（前端用于功能差异化展示）
+    # P1-2: PLG 会话相关字段（未登录用户）
+    scan_timestamp: Optional[str] = None  # 扫描时间戳（ISO格式，用于前端恢复显示）
+    session_expires_in: Optional[int] = None  # 会话剩余有效分钟数
+    # IntelliAudit 2.0: 顶部状态栏动态文案类型（EXCELLENT / WARNING / CRITICAL）
+    risk_type: Optional[str] = None
+    # IntelliAudit 2.0 Pro: 利润红线击穿标记（net_profit < min_profit_threshold 时触发）
+    profit_alert_triggered: Optional[bool] = None
+    # IntelliAudit 2.0 Pro Phase 2.1: 货币/汇率偏好
+    # currency: 用户输入时使用的货币代码（如 "RM"/"CNY"），profit_analysis 始终为 RM
+    currency: Optional[str] = None
+    # exchange_rate: 转换使用的汇率（1 RM = X user_currency），None 表示未转换
+    exchange_rate: Optional[float] = None
+    # IntelliAudit 2.0 Pro Phase 3.1: 历史对比（Jaccard 相似度 + 新增/已解决违规词）
+    history_comparison: Optional[dict] = None
 
 
 class FetchMetaRequest(BaseModel):
@@ -174,6 +201,7 @@ class RegisterRequest(BaseModel):
     """注册请求"""
     email: EmailStr
     password: str = Field(..., min_length=8, description="密码至少8位，需包含字母和数字")
+    wa_number: str = Field(..., description="WhatsApp号码（E.164格式，如+60123456789），V1.0 必填，注册即激活 14 天 Trial")
 
 
 class LoginRequest(BaseModel):

@@ -8,7 +8,7 @@ const translations = {
     en: {
         // Page
         "payTitle": "Complete Your Purchase",
-        "paySubtitle": "Secure checkout. Instant access. No hidden fees.",
+        "paySubtitle": "Unlock AI pre-audit, unlimited profit analysis, and batch scanning.",
 
         // Plan
         "planLabel": "Pro Plan",
@@ -17,9 +17,12 @@ const translations = {
         "feature1": "Unlimited single scans & margin calculator",
         "feature2": "Safe title generator",
         "feature3": "Link detection 50/day",
-        "feature4": "Batch CSV up to 200 items (with margin report)",
+        "feature4": "Batch CSV up to 100 items (with margin report)",
         "feature5": "CSV report export (with profit data)",
         "feature6": "False positive reward: +7 days Pro",
+        "feature7": "IntelliAudit 2.0: AI insight engine with quick actions",
+        "feature8": "Full fee breakdown & opportunity score dimensions",
+        "feature9": "Break-even price, ROI & suggested pricing",
 
         // Trust Badges
         "trust1Title": "Secure Payment",
@@ -43,7 +46,7 @@ const translations = {
     zh: {
         // Page
         "payTitle": "完成购买",
-        "paySubtitle": "安全结账。立即开通。无隐藏费用。",
+        "paySubtitle": "解锁AI预审、无限利润分析与批量扫描。",
 
         // Plan
         "planLabel": "专业版",
@@ -52,9 +55,12 @@ const translations = {
         "feature1": "无限单条扫描 & 毛利速算",
         "feature2": "安全标题生成器",
         "feature3": "链接检测 50次/天",
-        "feature4": "批量标题 (CSV) 200条/次（含毛利报告）",
+        "feature4": "批量标题 (CSV) 100条/次（含毛利报告）",
         "feature5": "CSV 报告导出（含利润数据）",
         "feature6": "误报反馈奖励：确认后 +7天 Pro",
+        "feature7": "IntelliAudit 2.0: AI 洞察建议引擎（含快捷操作）",
+        "feature8": "完整费用拆解 & 机会评分维度详情",
+        "feature9": "盈亏平衡价、ROI & 建议售价",
 
         // Trust Badges
         "trust1Title": "安全支付",

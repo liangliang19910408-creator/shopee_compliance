@@ -144,7 +144,11 @@ async def init_db_tables(db):
             password_hash TEXT,                        -- 密码哈希（bcrypt，NULL表示未设置密码）
             wa_number TEXT,                            -- WhatsApp号码（E.164格式，如+60123456789）
             trial_activated_at TEXT,                   -- Trial激活时间（绑WA时间）
-            trial_activated_wa TEXT                    -- 激活Trial时使用的WA号（用于防刷验证）
+            trial_activated_wa TEXT,                   -- 激活Trial时使用的WA号（用于防刷验证）
+            email_verified INTEGER DEFAULT 0,          -- 邮箱验证状态（0=未验证, 1=已验证，预留字段）
+            registered_ip TEXT,                        -- 注册时IP地址（用于注册限流）
+            is_admin INTEGER DEFAULT 0,                -- 管理员标记（0=普通用户, 1=管理员）
+            paid_at TEXT                               -- 付费时间（用于统计今日付费转化）
         )
     """)
 
@@ -170,7 +174,8 @@ async def init_db_tables(db):
             risk_level TEXT,                          -- 风险等级：HIGH/MEDIUM/LOW
             score INTEGER DEFAULT 100,                -- 合规评分
             raw_result_json TEXT,                     -- 完整扫描结果JSON
-            generated_safe_title TEXT                 -- 生成的安全标题
+            generated_safe_title TEXT,                -- 生成的安全标题
+            platform TEXT DEFAULT 'shopee'            -- 平台：shopee/lazada
         )
     """)
 
@@ -270,6 +275,131 @@ async def init_db_tables(db):
         )
     """)
 
+    # IntelliAudit 2.0: 机会评分历史表
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS opportunity_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_id TEXT,
+            score INTEGER,
+            score_level TEXT,
+            compliance_score INTEGER,
+            profit_score INTEGER,
+            competition_score INTEGER,
+            risk_score INTEGER,
+            profit_margin REAL,
+            net_profit REAL,
+            gate_passed INTEGER DEFAULT 1,
+            gate_reason TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_opp_scores_user_created
+        ON opportunity_scores(user_id, created_at DESC)
+    """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_opp_scores_session
+        ON opportunity_scores(session_id)
+    """)
+
+    # wa_number 唯一索引（仅非NULL值，防止并发注册重复绑定）
+    await db.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_trials_wa_number 
+        ON trials(wa_number) WHERE wa_number IS NOT NULL AND wa_number != ''
+    """)
+
+    # 为 scan_results 添加索引（批量扫描时一个session_id对应多条记录）
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_scan_results_session_id 
+        ON scan_results(session_id)
+    """)
+
+    # Admin 1.0: 用户反馈表
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS user_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键
+            email TEXT NOT NULL,                      -- 提交反馈的用户邮箱
+            content TEXT NOT NULL,                    -- 反馈内容
+            status TEXT DEFAULT 'pending',            -- 状态：pending(未处理) / adopted(已采纳) / dismissed(已忽略)
+            reward_days INTEGER DEFAULT 0,            -- 奖励天数（0=未奖励, 7=奖励7天Pro）
+            rewarded_at TEXT,                         -- 奖励时间
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP -- 提交时间
+        )
+    """)
+
+    # Admin 1.0: 系统全局开关表（键值对，用于支付熔断等）
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS system_flags (
+            key TEXT PRIMARY KEY,                     -- 开关名称（如 payment_disabled）
+            value TEXT DEFAULT '0',                   -- 开关值（'0'=关闭, '1'=开启）
+            reason TEXT,                              -- 操作原因
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP -- 更新时间
+        )
+    """)
+
+    # Admin 1.0: 管理员操作日志表
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS admin_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键
+            admin_email TEXT NOT NULL,                -- 操作管理员邮箱
+            action TEXT NOT NULL,                     -- 操作类型（adopt_feedback / toggle_payment 等）
+            target TEXT,                              -- 操作目标（如反馈ID）
+            detail TEXT,                              -- 操作详情（JSON）
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP -- 操作时间
+        )
+    """)
+
+    # P0-4: PLG 会话缓存表 — 存储未登录用户的扫描结果，支持刷新恢复和数据认领
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS session_cache (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,    -- 主键
+            session_id TEXT NOT NULL,                 -- 会话ID（UUID，通过Cookie传递）
+            scan_data TEXT NOT NULL,                  -- 完整扫描结果JSON
+            scan_timestamp TEXT NOT NULL,             -- 扫描时间（ISO格式）
+            source_type TEXT DEFAULT 'text',          -- 来源类型：text/url
+            title_snippet TEXT,                       -- 标题片段（用于快速预览）
+            risk_level TEXT,                          -- 风险等级：HIGH/MEDIUM/LOW
+            score INTEGER DEFAULT 100,                -- 合规评分
+            claimed_by TEXT,                          -- 认领者邮箱（NULL=未认领）
+            claimed_at TEXT,                          -- 认领时间
+            ip_address TEXT,                          -- 扫描时IP地址
+            platform TEXT DEFAULT 'shopee',           -- 平台：shopee/lazada
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP -- 创建时间
+        )
+    """)
+
+    # P0-4: 为 session_cache 创建索引
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_session_cache_session_id
+        ON session_cache(session_id)
+    """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_session_cache_created_at
+        ON session_cache(created_at)
+    """)
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_session_cache_claimed_by
+        ON session_cache(claimed_by)
+    """)
+
+    # IntelliAudit 2.0 Pro: 用户偏好配置表（单行 JSON 存储）
+    # JSON 结构:
+    # {
+    #   "platforms": {
+    #     "shopee": {shipping_fee, shipping_cost, default_category, cashback, seller_type, target_profit_margin, min_profit_threshold},
+    #     "lazada": {...}
+    #   },
+    #   "global": {default_currency, locked_exchange_rate, default_cost, suppliers:[{name, category, cost}]}
+    # }
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            email TEXT PRIMARY KEY,                     -- 用户邮箱（主键，关联 trials.email）
+            preferences_json TEXT NOT NULL DEFAULT '{}', -- 偏好配置（JSON 字符串）
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP   -- 最后更新时间
+        )
+    """)
+
 
 async def init_db():
     """初始化数据库表"""
@@ -327,11 +457,74 @@ async def init_db():
         except:
             pass
         
+        # IntelliAudit 2.0: 新增字段迁移
+        try:
+            await db.execute("ALTER TABLE trials ADD COLUMN email_verified INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE trials ADD COLUMN registered_ip TEXT")
+        except:
+            pass
+        
+        # Admin 1.0: 新增字段迁移
+        try:
+            await db.execute("ALTER TABLE trials ADD COLUMN is_admin INTEGER DEFAULT 0")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE trials ADD COLUMN paid_at TEXT")
+        except:
+            pass
+        
+        # Admin 1.0: 初始化默认管理员（需手动设置邮箱）
+        try:
+            # 设置第一个管理员（部署时修改此邮箱）
+            await db.execute("""
+                UPDATE trials SET is_admin = 1 WHERE email = 'admin@compliancemy.com'
+            """)
+        except:
+            pass
+        
+        # Admin 1.0: 初始化支付开关为正常状态
+        try:
+            await db.execute("""
+                INSERT OR IGNORE INTO system_flags (key, value, reason) 
+                VALUES ('payment_disabled', '0', 'init')
+            """)
+        except:
+            pass
+        
+        # wa_number 唯一索引（仅非NULL值，防止并发注册重复绑定）
+        try:
+            await db.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_trials_wa_number 
+                ON trials(wa_number) WHERE wa_number IS NOT NULL AND wa_number != ''
+            """)
+        except Exception as e:
+            print(f"[DB MIGRATION] wa_number unique index: {e}")
+        
         # 为 scan_results 添加索引（批量扫描时一个session_id对应多条记录）
         try:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_scan_results_session_id ON scan_results(session_id)")
         except Exception as e:
             print(f"Error creating index: {e}")
+        
+        # P0-4: scan_history 表扩展 — 添加 session_id 字段（关联 PLG 会话）
+        try:
+            await db.execute("ALTER TABLE scan_history ADD COLUMN session_id TEXT")
+        except:
+            pass
+
+        # P2: Lazada 双平台支持 — 添加 platform 字段
+        try:
+            await db.execute("ALTER TABLE scan_history ADD COLUMN platform TEXT DEFAULT 'shopee'")
+        except:
+            pass
+        try:
+            await db.execute("ALTER TABLE session_cache ADD COLUMN platform TEXT DEFAULT 'shopee'")
+        except:
+            pass
         
         await db.commit()
 
@@ -411,9 +604,9 @@ async def check_email_activated_trial(db: aiosqlite.Connection, email: str) -> b
 
 
 async def bind_wa_and_activate_trial(db: aiosqlite.Connection, email: str, wa_number: str) -> bool:
-    """绑定 WA 号并激活 Trial（7天有效期）"""
+    """绑定 WA 号并激活 Trial（14天有效期）"""
     now = datetime.utcnow()
-    trial_end = now + timedelta(days=7)
+    trial_end = now + timedelta(days=14)
     
     await db.execute("""
         UPDATE trials 
@@ -661,12 +854,13 @@ async def validate_trial(db: aiosqlite.Connection, token: str) -> tuple:
 
 async def upgrade_to_paid(db: aiosqlite.Connection, email: str, plan_type: str, months: int = 1) -> dict:
     """升级用户为付费状态"""
+    now_iso = datetime.utcnow().isoformat()
     paid_until = (datetime.utcnow() + timedelta(days=30 * months)).strftime("%Y-%m-%d")
     await db.execute("""
         UPDATE trials
-        SET status = 'paid', paid_until = ?, plan_type = ?
+        SET status = 'paid', paid_until = ?, plan_type = ?, paid_at = COALESCE(paid_at, ?)
         WHERE email = ?
-    """, (paid_until, plan_type, email))
+    """, (paid_until, plan_type, now_iso, email))
     await db.commit()
     return {"paid_until": paid_until, "plan_type": plan_type}
 
@@ -713,14 +907,15 @@ async def save_scan_history(
     source_type: str = 'text',
     generated_safe_title: str = None,
     shop_id: str = None,
-    item_id: str = None
+    item_id: str = None,
+    platform: str = "shopee"
 ):
     """保存扫描历史"""
     await db.execute("""
         INSERT INTO scan_history
-        (email, title_snippet, risk_level, score, raw_result_json, source_type, scan_time, generated_safe_title, shop_id, item_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (user_email, title_snippet, risk_level, score, raw_result_json, source_type, datetime.utcnow().isoformat(), generated_safe_title, shop_id, item_id))
+        (email, title_snippet, risk_level, score, raw_result_json, source_type, scan_time, generated_safe_title, shop_id, item_id, platform)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (user_email, title_snippet, risk_level, score, raw_result_json, source_type, datetime.utcnow().isoformat(), generated_safe_title, shop_id, item_id, platform))
     await db.commit()
 
 
@@ -731,12 +926,463 @@ async def get_scan_history(db: aiosqlite.Connection, user_email: str, page: int 
         SELECT * FROM scan_history WHERE email = ? ORDER BY scan_time DESC LIMIT ? OFFSET ?
     """, (user_email, page_size, offset))
     rows = await cursor.fetchall()
-    
+
     cursor = await db.execute("SELECT COUNT(*) as total FROM scan_history WHERE email = ?", (user_email,))
     total_row = await cursor.fetchone()
     total = total_row["total"] if total_row else 0
-    
+
     return [dict(r) for r in rows], total
+
+
+async def find_comparison_scan(
+    db: aiosqlite.Connection,
+    user_email: str,
+    title: str,
+    item_id: str = None,
+    shop_id: str = None,
+    limit: int = 20,
+) -> list:
+    """
+    IntelliAudit 2.0 Pro Phase 3.1: 查找可对比的历史扫描。
+    优先级：item_id 精确匹配 > shop_id + 标题前缀 > 仅标题前缀。
+    返回最近的若干条候选（dict 列表），由调用方计算 Jaccard 相似度后择优。
+    """
+    candidates = []
+    # 1. item_id 精确匹配（最强信号）
+    if item_id:
+        cursor = await db.execute("""
+            SELECT * FROM scan_history
+            WHERE email = ? AND item_id = ? AND item_id IS NOT NULL AND item_id != ''
+            ORDER BY scan_time DESC LIMIT ?
+        """, (user_email, item_id, limit))
+        candidates = [dict(r) for r in await cursor.fetchall()]
+    # 2. shop_id + 标题前缀
+    if not candidates and shop_id:
+        title_prefix = (title or "")[:30]
+        cursor = await db.execute("""
+            SELECT * FROM scan_history
+            WHERE email = ? AND shop_id = ?
+              AND substr(title_snippet, 1, 30) = substr(?, 1, 30)
+            ORDER BY scan_time DESC LIMIT ?
+        """, (user_email, shop_id, title_prefix, limit))
+        candidates = [dict(r) for r in await cursor.fetchall()]
+    # 3. 标题前缀兜底
+    if not candidates and title:
+        title_prefix = title[:30]
+        cursor = await db.execute("""
+            SELECT * FROM scan_history
+            WHERE email = ? AND substr(title_snippet, 1, 30) = substr(?, 1, 30)
+            ORDER BY scan_time DESC LIMIT ?
+        """, (user_email, title_prefix, limit))
+        candidates = [dict(r) for r in await cursor.fetchall()]
+    return candidates
+
+
+# ============ P0-4/P1/P2: Session Cache 操作（PLG 会话缓存）===========
+# 会话缓存过期时间（分钟）— 30分钟
+SESSION_CACHE_TTL_MINUTES = 30
+
+
+async def save_session_cache(
+    db: aiosqlite.Connection,
+    session_id: str,
+    scan_data: str,
+    scan_timestamp: str,
+    source_type: str = "text",
+    title_snippet: str = None,
+    risk_level: str = None,
+    score: int = 100,
+    ip_address: str = None,
+    platform: str = "shopee"
+) -> int:
+    """
+    P1-2: 保存扫描结果到会话缓存（未登录用户）
+    每个会话只保留最新一条扫描结果（覆盖旧记录）
+    """
+    # 先删除该 session_id 的旧记录（只保留最新）
+    await db.execute("DELETE FROM session_cache WHERE session_id = ?", (session_id,))
+
+    cursor = await db.execute("""
+        INSERT INTO session_cache (
+            session_id, scan_data, scan_timestamp, source_type,
+            title_snippet, risk_level, score, ip_address, platform
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (session_id, scan_data, scan_timestamp, source_type,
+          title_snippet, risk_level, score, ip_address, platform))
+    await db.commit()
+    return cursor.lastrowid
+
+
+async def get_session_cache(db: aiosqlite.Connection, session_id: str) -> Optional[dict]:
+    """
+    P1-3: 从会话缓存中获取最新扫描结果
+    返回 None 如果不存在或已过期
+    """
+    cursor = await db.execute("""
+        SELECT * FROM session_cache
+        WHERE session_id = ? AND claimed_by IS NULL
+        ORDER BY created_at DESC LIMIT 1
+    """, (session_id,))
+    row = await cursor.fetchone()
+    if not row:
+        return None
+
+    row_dict = dict(row)
+
+    # 检查是否过期
+    created_at_str = row_dict.get("created_at", "")
+    if created_at_str:
+        try:
+            # SQLite CURRENT_TIMESTAMP 格式: 'YYYY-MM-DD HH:MM:SS'
+            created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+            now = datetime.utcnow()
+            age_minutes = (now - created_at).total_seconds() / 60
+            if age_minutes > SESSION_CACHE_TTL_MINUTES:
+                return None
+            row_dict["expires_in_minutes"] = max(0, int(SESSION_CACHE_TTL_MINUTES - age_minutes))
+        except (ValueError, TypeError):
+            pass
+
+    return row_dict
+
+
+async def claim_session_cache(
+    db: aiosqlite.Connection,
+    session_id: str,
+    email: str
+) -> Optional[dict]:
+    """
+    P2-1: 认领会话数据 — 将未登录会话的扫描数据转移到注册用户名下
+    幂等设计：已认领的记录再次认领返回成功但不重复操作
+    并发安全：使用 UPDATE ... WHERE claimed_by IS NULL 确保只认领一次
+    """
+    # 1. 查询该 session_id 未认领的记录
+    cursor = await db.execute("""
+        SELECT * FROM session_cache
+        WHERE session_id = ? AND claimed_by IS NULL
+        ORDER BY created_at DESC LIMIT 1
+    """, (session_id,))
+    row = await cursor.fetchone()
+
+    if not row:
+        # 检查是否已经被该用户认领过（幂等返回）
+        cursor = await db.execute("""
+            SELECT * FROM session_cache
+            WHERE session_id = ? AND claimed_by = ?
+            ORDER BY claimed_at DESC LIMIT 1
+        """, (session_id, email))
+        already_claimed = await cursor.fetchone()
+        if already_claimed:
+            return {"already_claimed": True, "data": dict(already_claimed)}
+        return None  # 不存在或已过期
+
+    row_dict = dict(row)
+
+    # 2. 原子性认领（并发安全：WHERE claimed_by IS NULL 确保只认领一次）
+    now_iso = datetime.utcnow().isoformat()
+    cursor = await db.execute("""
+        UPDATE session_cache
+        SET claimed_by = ?, claimed_at = ?
+        WHERE session_id = ? AND claimed_by IS NULL
+    """, (email, now_iso, session_id))
+
+    if cursor.rowcount == 0:
+        # 并发竞争：被其他请求抢先认领
+        cursor = await db.execute("""
+            SELECT * FROM session_cache
+            WHERE session_id = ? AND claimed_by = ?
+            ORDER BY claimed_at DESC LIMIT 1
+        """, (session_id, email))
+        claimed_by_other = await cursor.fetchone()
+        if claimed_by_other and dict(claimed_by_other).get("claimed_by") == email:
+            return {"already_claimed": True, "data": dict(claimed_by_other)}
+        return None
+
+    await db.commit()
+    row_dict["claimed_by"] = email
+    row_dict["claimed_at"] = now_iso
+    return {"claimed": True, "data": row_dict}
+
+
+async def cleanup_expired_session_cache(db: aiosqlite.Connection) -> int:
+    """
+    P0-4: 清理过期的会话缓存记录
+    删除超过 TTL 且未被认领的记录
+    """
+    cutoff = (datetime.utcnow() - timedelta(minutes=SESSION_CACHE_TTL_MINUTES)).strftime("%Y-%m-%d %H:%M:%S")
+    cursor = await db.execute("""
+        DELETE FROM session_cache
+        WHERE claimed_by IS NULL AND created_at < ?
+    """, (cutoff,))
+    await db.commit()
+    return cursor.rowcount
+
+
+# ============ Admin 1.0: 管理员操作 ============
+
+async def is_admin(db: aiosqlite.Connection, email: str) -> bool:
+    """检查用户是否为管理员"""
+    cursor = await db.execute("SELECT is_admin FROM trials WHERE email = ?", (email,))
+    row = await cursor.fetchone()
+    return row is not None and row["is_admin"] == 1
+
+
+async def get_dashboard_stats(db: aiosqlite.Connection) -> dict:
+    """获取仪表盘统计数据（7个核心数字 + 昨日对比）"""
+    from globals import MYT
+    from datetime import timezone
+
+    now_myt = datetime.now(MYT)
+    today = now_myt.strftime("%Y-%m-%d")
+    yesterday = (now_myt - timedelta(days=1)).strftime("%Y-%m-%d")
+
+    stats = {}
+
+    # 1. 总注册用户（有 email 的用户）
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM trials WHERE email != '' AND email IS NOT NULL")
+    stats["total_users"] = (await cursor.fetchone())["cnt"]
+
+    # 2. Trial 用户
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM trials WHERE status = 'trial'")
+    stats["trial_users"] = (await cursor.fetchone())["cnt"]
+
+    # 3. Pro 用户（paid 且未过期）
+    now_iso = datetime.utcnow().isoformat()
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM trials WHERE status = 'paid' AND paid_until > ?", (now_iso,))
+    stats["pro_users"] = (await cursor.fetchone())["cnt"]
+
+    # 4. Free 用户
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM trials WHERE status IN ('free', 'trial_expired')")
+    stats["free_users"] = (await cursor.fetchone())["cnt"]
+
+    # 5. 待处理反馈
+    cursor = await db.execute("SELECT COUNT(*) as cnt FROM user_feedback WHERE status = 'pending'")
+    stats["pending_feedback"] = (await cursor.fetchone())["cnt"]
+
+    # 6. 今日新增注册（按 MYT 日期匹配 trial_start 的日期部分）
+    cursor = await db.execute("""
+        SELECT COUNT(*) as cnt FROM trials 
+        WHERE email != '' AND email IS NOT NULL 
+        AND substr(trial_start, 1, 10) = ?
+    """, (today,))
+    stats["today_new_users"] = (await cursor.fetchone())["cnt"]
+
+    # 7. 今日付费转化（paid_at 日期等于今天）
+    cursor = await db.execute("""
+        SELECT COUNT(*) as cnt FROM trials 
+        WHERE status = 'paid' AND paid_at IS NOT NULL 
+        AND substr(paid_at, 1, 10) = ?
+    """, (today,))
+    stats["today_conversions"] = (await cursor.fetchone())["cnt"]
+
+    # === 昨日对比 ===
+    # 昨日新增注册
+    cursor = await db.execute("""
+        SELECT COUNT(*) as cnt FROM trials 
+        WHERE email != '' AND email IS NOT NULL 
+        AND substr(trial_start, 1, 10) = ?
+    """, (yesterday,))
+    stats["yesterday_new_users"] = (await cursor.fetchone())["cnt"]
+
+    # 昨日付费转化
+    cursor = await db.execute("""
+        SELECT COUNT(*) as cnt FROM trials 
+        WHERE status = 'paid' AND paid_at IS NOT NULL 
+        AND substr(paid_at, 1, 10) = ?
+    """, (yesterday,))
+    stats["yesterday_conversions"] = (await cursor.fetchone())["cnt"]
+
+    # 昨日待处理反馈（用创建时间）
+    cursor = await db.execute("""
+        SELECT COUNT(*) as cnt FROM user_feedback 
+        WHERE status = 'pending' AND substr(created_at, 1, 10) = ?
+    """, (yesterday,))
+    stats["yesterday_pending_feedback"] = (await cursor.fetchone())["cnt"]
+
+    return stats
+
+
+async def submit_feedback(db: aiosqlite.Connection, email: str, content: str) -> dict:
+    """用户提交反馈"""
+    now = datetime.utcnow().isoformat()
+    cursor = await db.execute("""
+        INSERT INTO user_feedback (email, content, status, created_at)
+        VALUES (?, ?, 'pending', ?)
+    """, (email, content, now))
+    await db.commit()
+    return {"id": cursor.lastrowid, "email": email, "content": content}
+
+
+async def get_feedback_list(db: aiosqlite.Connection, status: str = None, limit: int = 100, offset: int = 0) -> list:
+    """获取反馈列表（支持按状态筛选）"""
+    if status:
+        cursor = await db.execute("""
+            SELECT f.*, t.status as user_status, t.paid_until, t.trial_end, t.wa_number
+            FROM user_feedback f
+            LEFT JOIN trials t ON f.email = t.email
+            WHERE f.status = ?
+            ORDER BY f.created_at DESC
+            LIMIT ? OFFSET ?
+        """, (status, limit, offset))
+    else:
+        cursor = await db.execute("""
+            SELECT f.*, t.status as user_status, t.paid_until, t.trial_end, t.wa_number
+            FROM user_feedback f
+            LEFT JOIN trials t ON f.email = t.email
+            ORDER BY f.created_at DESC
+            LIMIT ? OFFSET ?
+        """, (limit, offset))
+    rows = await cursor.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_feedback_by_id(db: aiosqlite.Connection, feedback_id: int) -> Optional[dict]:
+    """获取单条反馈"""
+    cursor = await db.execute("""
+        SELECT f.*, t.status as user_status, t.paid_until, t.trial_end, t.wa_number
+        FROM user_feedback f
+        LEFT JOIN trials t ON f.email = t.email
+        WHERE f.id = ?
+    """, (feedback_id,))
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def check_recent_reward(db: aiosqlite.Connection, email: str, days: int = 7) -> bool:
+    """检查用户在指定天数内是否已被奖励过（防刷：7天内限一次）"""
+    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    cursor = await db.execute("""
+        SELECT COUNT(*) as cnt FROM user_feedback 
+        WHERE email = ? AND reward_days > 0 AND rewarded_at > ?
+    """, (email, cutoff))
+    count = (await cursor.fetchone())["cnt"]
+    return count > 0
+
+
+async def adopt_feedback_and_reward(db: aiosqlite.Connection, feedback_id: int, reward_days: int = 7) -> dict:
+    """
+    采纳反馈并奖励用户（智能延期）
+
+    规则：
+    - Free 用户 → 直接升级为 Pro（status='paid'），到期时间 = now + 7天
+    - Trial 用户 → 升级为 Pro（status='paid'），到期时间 = max(trial_end, now) + 7天
+    - Pro 用户 → 到期时间 = max(paid_until, now) + 7天（顺延不覆盖）
+
+    返回: {success, email, new_paid_until, reward_days, message}
+    """
+    feedback = await get_feedback_by_id(db, feedback_id)
+    if not feedback:
+        return {"success": False, "message": "反馈不存在"}
+
+    if feedback["status"] != "pending":
+        return {"success": False, "message": f"反馈已处理（当前状态: {feedback['status']}）"}
+
+    email = feedback["email"]
+    now = datetime.utcnow()
+    reward_days_td = timedelta(days=reward_days)
+
+    # 获取用户当前状态
+    cursor = await db.execute("SELECT status, paid_until, trial_end FROM trials WHERE email = ?", (email,))
+    user = await cursor.fetchone()
+    if not user:
+        return {"success": False, "message": "用户不存在"}
+
+    user_status = user["status"]
+    paid_until_str = user["paid_until"]
+    trial_end_str = user["trial_end"]
+
+    # 智能延期计算
+    if user_status == "paid" and paid_until_str:
+        # 已是 Pro：在现有到期时间基础上顺延
+        try:
+            current_end = datetime.fromisoformat(paid_until_str)
+            base = max(current_end, now)
+        except (ValueError, TypeError):
+            base = now
+        new_paid_until = base + reward_days_td
+    elif user_status == "trial" and trial_end_str:
+        # Trial 用户：从 max(trial_end, now) 开始延期，升级为 paid
+        try:
+            current_end = datetime.fromisoformat(trial_end_str)
+            base = max(current_end, now)
+        except (ValueError, TypeError):
+            base = now
+        new_paid_until = base + reward_days_td
+    else:
+        # Free 用户：直接升级为 Pro，从现在开始 7 天
+        new_paid_until = now + reward_days_td
+
+    new_paid_until_str = new_paid_until.isoformat()
+    now_str = now.isoformat()
+
+    # 更新用户状态为 Pro
+    await db.execute("""
+        UPDATE trials 
+        SET status = 'paid', 
+            paid_until = ?,
+            paid_at = COALESCE(paid_at, ?),
+            plan_type = COALESCE(plan_type, 'feedback_reward')
+        WHERE email = ?
+    """, (new_paid_until_str, now_str, email))
+
+    # 更新反馈状态
+    await db.execute("""
+        UPDATE user_feedback 
+        SET status = 'adopted', reward_days = ?, rewarded_at = ?
+        WHERE id = ?
+    """, (reward_days, now_str, feedback_id))
+
+    await db.commit()
+
+    return {
+        "success": True,
+        "email": email,
+        "new_paid_until": new_paid_until_str,
+        "reward_days": reward_days,
+        "message": f"已采纳反馈，用户 {email} 获得 {reward_days} 天 Pro 权限，到期时间: {new_paid_until_str}",
+    }
+
+
+async def dismiss_feedback(db: aiosqlite.Connection, feedback_id: int) -> dict:
+    """忽略反馈（不奖励）"""
+    feedback = await get_feedback_by_id(db, feedback_id)
+    if not feedback:
+        return {"success": False, "message": "反馈不存在"}
+
+    if feedback["status"] != "pending":
+        return {"success": False, "message": "反馈已处理"}
+
+    await db.execute("UPDATE user_feedback SET status = 'dismissed' WHERE id = ?", (feedback_id,))
+    await db.commit()
+    return {"success": True, "message": "反馈已忽略"}
+
+
+async def get_system_flag(db: aiosqlite.Connection, key: str) -> str:
+    """获取系统开关值"""
+    cursor = await db.execute("SELECT value FROM system_flags WHERE key = ?", (key,))
+    row = await cursor.fetchone()
+    return row["value"] if row else "0"
+
+
+async def set_system_flag(db: aiosqlite.Connection, key: str, value: str, reason: str = None) -> dict:
+    """设置系统开关值"""
+    now = datetime.utcnow().isoformat()
+    await db.execute("""
+        INSERT INTO system_flags (key, value, reason, updated_at) 
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = ?, reason = ?, updated_at = ?
+    """, (key, value, reason, now, value, reason, now))
+    await db.commit()
+    return {"key": key, "value": value, "reason": reason, "updated_at": now}
+
+
+async def log_admin_action(db: aiosqlite.Connection, admin_email: str, action: str, target: str = None, detail: str = None):
+    """记录管理员操作日志"""
+    await db.execute("""
+        INSERT INTO admin_logs (admin_email, action, target, detail, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (admin_email, action, target, detail, datetime.utcnow().isoformat()))
+    await db.commit()
 
 
 async def get_safe_titles(db: aiosqlite.Connection, user_email: str) -> list:
@@ -1018,9 +1664,119 @@ async def get_user_batch_jobs(db: aiosqlite.Connection, email: str, page: int = 
         SELECT * FROM batch_jobs WHERE email = ? ORDER BY created_at DESC LIMIT ? OFFSET ?
     """, (email, page_size, offset))
     rows = await cursor.fetchall()
-    
+
     cursor = await db.execute("SELECT COUNT(*) as total FROM batch_jobs WHERE email = ?", (email,))
     total_row = await cursor.fetchone()
     total = total_row["total"] if total_row else 0
-    
+
     return [dict(r) for r in rows], total
+
+
+# ============ User Preferences 操作（IntelliAudit 2.0 Pro 配置中心）===========
+
+# 默认偏好配置模板
+DEFAULT_PREFERENCES = {
+    "platforms": {
+        "shopee": {
+            "shipping_fee": 0.0,
+            "shipping_cost": 0.0,
+            "default_category": "general",
+            "cashback": True,
+            "seller_type": "marketplace",
+            "target_profit_margin": 20.0,
+            "min_profit_threshold": 2.0,
+        },
+        "lazada": {
+            "shipping_fee": 0.0,
+            "shipping_cost": 0.0,
+            "default_category": "general",
+            "cashback": False,
+            "seller_type": "marketplace",
+            "target_profit_margin": 20.0,
+            "min_profit_threshold": 2.0,
+        },
+    },
+    "global": {
+        "default_currency": "RM",
+        "locked_exchange_rate": None,
+        "default_cost": None,
+        "suppliers": [],
+    },
+}
+
+
+async def get_user_preferences(db: aiosqlite.Connection, email: str) -> dict:
+    """
+    获取用户偏好配置。若不存在则返回默认模板（不写入数据库）。
+    返回完整的 preferences JSON 字典（合并默认值）。
+    """
+    import json as _json
+    cursor = await db.execute(
+        "SELECT preferences_json FROM user_preferences WHERE email = ?",
+        (email,)
+    )
+    row = await cursor.fetchone()
+    if not row:
+        # 返回默认模板的深拷贝
+        return _json.loads(_json.dumps(DEFAULT_PREFERENCES))
+
+    try:
+        stored = _json.loads(row["preferences_json"]) if row["preferences_json"] else {}
+    except (ValueError, TypeError):
+        stored = {}
+
+    # 合并默认值（确保新增字段有默认值，向后兼容）
+    merged = _json.loads(_json.dumps(DEFAULT_PREFERENCES))
+    for platform in ("shopee", "lazada"):
+        if platform in stored.get("platforms", {}):
+            merged["platforms"][platform].update(stored["platforms"][platform])
+    if "global" in stored:
+        merged["global"].update(stored["global"])
+    return merged
+
+
+async def save_user_preferences(db: aiosqlite.Connection, email: str, preferences: dict) -> dict:
+    """
+    保存（或更新）用户偏好配置。UPSERT 语义。
+    返回保存后的完整配置（合并默认值）。
+    """
+    import json as _json
+    now_iso = datetime.utcnow().isoformat()
+    # 先读取现有值做合并（确保不丢失未提交的字段）
+    current = await get_user_preferences(db, email)
+
+    # 按平台合并 platforms
+    if "platforms" in preferences:
+        for platform in ("shopee", "lazada"):
+            if platform in preferences["platforms"]:
+                current["platforms"][platform].update(preferences["platforms"][platform])
+
+    # 合并 global
+    if "global" in preferences:
+        g = preferences["global"]
+        if "suppliers" in g:
+            # suppliers 是数组，整体替换
+            current["global"]["suppliers"] = g["suppliers"]
+        for k in ("default_currency", "locked_exchange_rate", "default_cost"):
+            if k in g:
+                current["global"][k] = g[k]
+
+    preferences_json = _json.dumps(current, ensure_ascii=False)
+    await db.execute("""
+        INSERT INTO user_preferences (email, preferences_json, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(email) DO UPDATE SET
+            preferences_json = excluded.preferences_json,
+            updated_at = excluded.updated_at
+    """, (email, preferences_json, now_iso))
+    await db.commit()
+    return current
+
+
+async def get_platform_preference(db: aiosqlite.Connection, email: str, platform: str) -> dict:
+    """
+    获取指定平台的偏好配置子集。
+    若 platform 非法或用户无配置，返回默认平台的配置。
+    """
+    prefs = await get_user_preferences(db, email)
+    return prefs.get("platforms", {}).get(platform, prefs["platforms"]["shopee"])

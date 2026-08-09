@@ -31,17 +31,17 @@ def detect_variants(title: str, description: str = "") -> List[str]:
     return found
 
 
-def run_scan(title: str, description: str, product_category: str = "general", include_lazada: bool = False) -> Tuple[List[Violation], RiskLevel]:
+def run_scan(title: str, description: str, product_category: str = "general", platform: str = "shopee") -> Tuple[List[Violation], RiskLevel]:
     """
     执行完整扫描流程
     - product_category: 类目过滤（general/beauty/electronics/fashion/home）
-    - include_lazada: 是否包含 Lazada MY 规则
+    - platform: 平台标识（shopee/lazada），平台隔离模式
     - 变体词不在 violations 中返回，仅作为 hygiene 提醒
     """
     all_violations: List[Violation] = []
 
     # A. 违禁词检测（带类目过滤和平台过滤）
-    all_violations.extend(banned_words_scan(title, description, product_category, include_lazada))
+    all_violations.extend(banned_words_scan(title, description, product_category, platform=platform))
 
     # B. 类目规则检测
     all_violations.extend(category_scan(product_category, title, description))

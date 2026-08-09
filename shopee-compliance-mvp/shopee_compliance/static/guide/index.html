@@ -59,7 +59,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
   <div id="app" class="min-h-screen flex items-center justify-center text-slate-400">内容加载中…</div>
-  <button id="backToTop" aria-label="返回顶部" class="fixed bottom-6 right-6 z-50 hidden w-12 h-12 rounded-full bg-indigo-600 text-white text-xl shadow-lg hover:bg-indigo-700 focus:outline-none transition-opacity">↑</button>
+  <button id="backToTop" aria-label="返回顶部" class="fixed bottom-6 right-6 z-50 hidden w-12 h-12 rounded-full bg-orange-600 text-white text-xl shadow-lg hover:bg-orange-700 focus:outline-none transition-opacity">↑</button>
 
   <script>
     "use strict";
@@ -105,11 +105,11 @@
           <h1 class="text-xl font-bold text-slate-900 leading-snug">${esc(m.pageTitle)}</h1>
           <p class="text-xs text-slate-400 mt-1">最后更新：${esc(m.lastUpdate)} | 定期更新</p>
           <div class="mt-4 flex flex-wrap items-center gap-4">
-            <a href="${esc(primaryUrl)}" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-colors">${esc(primaryText)}</a>
+            <a href="${esc(primaryUrl)}" class="inline-flex items-center justify-center bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-colors">${esc(primaryText)}</a>
             <nav class="text-sm">
-              <a href="#compliance" class="text-slate-600 hover:text-indigo-600 hover:underline transition-colors">合规避坑</a>
+              <a href="#compliance" class="text-slate-600 hover:text-orange-600 hover:underline transition-colors">合规避坑</a>
               <span class="text-slate-200 mx-2">|</span>
-              <a href="#selection" class="text-slate-600 hover:text-indigo-600 hover:underline transition-colors">选品指南</a>
+              <a href="#selection" class="text-slate-600 hover:text-orange-600 hover:underline transition-colors">选品指南</a>
             </nav>
           </div>
         </div>
@@ -149,7 +149,7 @@
       <section id="compliance" class="max-w-3xl mx-auto px-4 py-8 border-t border-slate-100">
         <h2 class="text-2xl font-bold text-slate-900">${esc(ca.title)}</h2>
         <div class="mt-4 space-y-3">${alertCards}</div>
-        <p class="mt-3 text-sm text-slate-500">完整72+违规词库及实时罚分案例，请使用工具自动扫描。</p>
+        <p class="mt-3 text-sm text-slate-500">完整72+违规词库及实时罚分案例，请使用预审工具自动扫描。</p>
       </section>`;
 
       // Section 3: 高频违规词 (id=compliance-words)
@@ -187,7 +187,7 @@
       const platformCards = (si.platforms || []).map(function (p) {
         return `
         <div class="bg-white rounded-xl border border-slate-200 p-4">
-          <div class="font-semibold text-lg text-slate-900">${esc(p.name)} <span class="text-sm text-indigo-600">${esc(p.share)}</span></div>
+          <div class="font-semibold text-lg text-slate-900">${esc(p.name)} <span class="text-sm text-orange-600">${esc(p.share)}</span></div>
           <p class="mt-1 text-base text-slate-700">${esc(p.position)}</p>
         </div>`;
       }).join("");
@@ -243,9 +243,9 @@
       const footer = `
       <footer class="bg-white border-t border-slate-100 mt-8">
         <div class="max-w-3xl mx-auto px-4 py-10 text-center">
-          <a href="${esc(primaryUrl)}" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-3 rounded-lg shadow-sm transition-all hover:shadow-md">${esc(primaryText)}</a>
+          <a href="${esc(primaryUrl)}" class="inline-flex items-center justify-center bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold px-6 py-3 rounded-lg shadow-sm transition-all hover:shadow-md">${esc(primaryText)}</a>
           <p class="mt-6 text-sm text-slate-500">© 2026 ComplianceMY</p>
-          <p class="mt-2 text-xs text-slate-400">内容定期更新，最新合规预警请使用工具扫描。</p>
+          <p class="mt-2 text-xs text-slate-400">内容定期更新，最新合规预警请使用预审工具扫描。</p>
         </div>
       </footer>`;
 

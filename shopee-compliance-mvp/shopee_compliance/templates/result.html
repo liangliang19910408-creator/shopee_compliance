@@ -43,11 +43,11 @@
         }
     </style>
 </head>
-<body class="gradient-bg min-h-screen py-3 sm:py-6 px-3 sm:px-4">
+<body class="gradient-bg min-h-screen py-3 sm:py-6 px-3 sm:px-4" data-logged-in="{{ logged_in | lower }}">
     <div class="max-w-2xl mx-auto">
         <!-- Top Bar: Back Link + Language Switcher -->
         <div class="flex items-center justify-between mb-3 sm:mb-4">
-            <a href="/scan" class="inline-flex items-center text-indigo-400 hover:text-indigo-300 transition text-sm">
+            <a href="/scan" class="inline-flex items-center text-orange-400 hover:text-orange-300 transition text-sm">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                 </svg>
@@ -92,7 +92,7 @@
                 <!-- Actions Row -->
                 <div class="flex justify-center gap-3 mt-4">
                     <!-- Share Button -->
-                    <button id="shareBtn" onclick="shareResult()" class="px-4 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-1.5">
+                    <button id="shareBtn" onclick="shareResult()" class="px-4 py-2 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition flex items-center gap-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
                         </svg>
@@ -107,12 +107,25 @@
                     </button>
                 </div>
 
+                <!-- Scan Limit Reminder (for free users) -->
+                <div id="scanLimitReminder" class="hidden mt-3 p-2.5 bg-amber-50 rounded-lg border border-amber-200">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-amber-700">
+                            <span id="scanLimitIcon">📊</span>
+                            <span id="scanLimitText">今日免费扫描剩余：5 次</span>
+                        </span>
+                        <a href="#" onclick="handleUpgrade('scan_limit_banner'); return false;" class="text-amber-600 hover:text-amber-700 font-medium">
+                            <span data-i18n="upgradePro">Upgrade to Pro →</span>
+                        </a>
+                    </div>
+                </div>
+
                 <!-- Share Link Display (hidden by default) -->
                 <div id="shareLinkArea" class="hidden mt-3 p-3 bg-slate-200/50 rounded-lg">
                     <div class="text-xs text-slate-500 mb-1.5" data-i18n="shareLinkLabel">Share this link:</div>
                     <div class="flex items-center gap-2">
                         <input id="shareLinkInput" type="text" readonly class="flex-1 px-2 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-700 truncate" />
-                        <button onclick="copyShareLink()" class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded">
+                        <button onclick="copyShareLink()" class="px-3 py-1.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded">
                             <span data-i18n="copy">Copy</span>
                         </button>
                     </div>
@@ -142,24 +155,132 @@
                     </div>
                 </div>
 
-                <!-- 毛利卡片（仅当有毛利数据时显示） -->
-                <div id="marginCard" class="hidden mb-3 p-3 rounded-xl bg-green-900/30 border border-green-600/30">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-sm text-green-300 font-medium" data-i18n="scan.result.gross_profit">
-                                Est. Gross Profit: RM{{gp}} ({{margin}}%)
-                            </div>
-                            <div class="text-xs text-slate-500 mt-1" data-i18n="scan.result.margin_note">
-                                💡 售价为 Shopee 展示价，实际以订单为准。
-                            </div>
+                <!-- Profit Analysis Card (Phase 1: fee breakdown + net profit) -->
+                <div id="profitAnalysisCard" class="hidden mb-3 p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
+                            <span>💰</span>
+                            <span data-i18n="scan.result.fee_breakdown_title">Fee Breakdown</span>
+                        </h3>
+                        <div id="profitHealthBadge" class="text-xs px-2 py-1 rounded-full font-bold"></div>
+                    </div>
+
+                    <!-- Platform Fees Group Header -->
+                    <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5" data-i18n="scan.result.platform_fees_group">Platform Fees</div>
+
+                    <!-- Fee breakdown items -->
+                    <div id="feeBreakdownList" class="space-y-1.5 mb-3"></div>
+
+                    <!-- Divider -->
+                    <div class="border-t border-emerald-200 pt-2.5"></div>
+
+                    <!-- Key metrics -->
+                    <div class="grid grid-cols-2 gap-3 mt-3">
+                        <div class="bg-white/60 rounded-lg p-2.5 ring-2 ring-emerald-300">
+                            <div class="text-xs text-slate-500 mb-0.5" data-i18n="scan.result.net_profit">Net Profit</div>
+                            <div id="netProfitValue" class="text-lg font-extrabold text-emerald-700">RM 0.00</div>
                         </div>
-                        <div id="marginLevelBadge" class="text-xs px-2 py-1 rounded-full font-bold">
-                            <!-- 根据 margin_level 显示不同颜色 -->
+                        <div class="bg-white/60 rounded-lg p-2.5 ring-2 ring-emerald-300">
+                            <div class="text-xs text-slate-500 mb-0.5" data-i18n="scan.result.profit_margin">Profit Margin</div>
+                            <div id="profitMarginValue" class="text-lg font-extrabold text-emerald-700">0%</div>
+                        </div>
+                        <div class="bg-white/60 rounded-lg p-2.5">
+                            <div class="text-xs text-slate-500 mb-0.5" data-i18n="scan.result.break_even">Break-even Price</div>
+                            <div id="breakEvenValue" class="text-sm font-bold text-slate-700">RM 0.00</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5" data-i18n="scan.result.break_even_hint">Minimum price to cover all costs and fees</div>
+                        </div>
+                        <div class="bg-white/60 rounded-lg p-2.5">
+                            <div class="text-xs text-slate-500 mb-0.5" data-i18n="scan.result.roi">ROI</div>
+                            <div id="roiValue" class="text-sm font-bold text-slate-700">0%</div>
+                        </div>
+                    </div>
+
+                    <!-- Target Price Suggestion (Pro only) -->
+                    <div id="targetPriceCard" class="hidden mt-3 p-3 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                            <span class="text-sm">🎯</span>
+                            <span class="text-xs font-bold text-indigo-800" data-i18n="scan.result.target_price_title">Target Price Suggestion</span>
+                        </div>
+                        <div id="targetPriceContent" class="text-xs text-slate-700 leading-relaxed"></div>
+                    </div>
+
+                    <!-- Currency conversion note (Phase 2.1, Pro only) -->
+                    <div id="currencyNote" class="hidden mt-2 text-[10px] text-indigo-600 leading-relaxed"></div>
+
+                    <div class="text-xs text-slate-400 mt-2" data-i18n="scan.result.margin_note">
+                        💡 Fees calculated based on Shopee MY 2025 rates. Actual may vary.
+                    </div>
+                </div>
+
+                <!-- Opportunity Score Card (Phase 1: multi-dimensional scoring) -->
+                <div id="opportunityScoreCard" class="hidden mb-3 p-4 rounded-xl bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-bold text-orange-800 flex items-center gap-1.5">
+                            <span>🎯</span>
+                            <span data-i18n="scan.result.opp_score_title">Opportunity Score</span>
+                        </h3>
+                        <div id="oppScoreBadge" class="text-xs px-2 py-1 rounded-full font-bold"></div>
+                    </div>
+
+                    <!-- Total Score -->
+                    <div class="flex items-center gap-3 mb-3">
+                        <div id="oppTotalScore" class="text-3xl font-bold text-orange-700">0</div>
+                        <div class="flex-1">
+                            <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                                <div id="oppScoreBar" class="h-full rounded-full transition-all duration-500" style="width: 0%; background: linear-gradient(90deg, #6366f1, #8b5cf6);"></div>
+                            </div>
+                            <div id="oppGateStatus" class="text-xs mt-1"></div>
+                        </div>
+                    </div>
+
+                    <!-- Dimension scores -->
+                    <div class="grid grid-cols-4 gap-2">
+                        <div class="text-center bg-white/60 rounded-lg p-2">
+                            <div id="oppCompliance" class="text-base font-bold text-orange-600">0</div>
+                            <div class="text-[10px] text-slate-500" data-i18n="scan.result.opp_compliance">Content Compliance</div>
+                        </div>
+                        <div class="text-center bg-white/60 rounded-lg p-2">
+                            <div id="oppProfit" class="text-base font-bold text-emerald-600">0</div>
+                            <div class="text-[10px] text-slate-500" data-i18n="scan.result.opp_profit">Profit Health</div>
+                        </div>
+                        <div class="text-center bg-white/60 rounded-lg p-2">
+                            <div id="oppCompetition" class="text-base font-bold text-amber-600">0</div>
+                            <div class="text-[10px] text-slate-500" data-i18n="scan.result.opp_competition">Title Quality</div>
+                        </div>
+                        <div class="text-center bg-white/60 rounded-lg p-2">
+                            <div id="oppRisk" class="text-base font-bold text-rose-600">0</div>
+                            <div class="text-[10px] text-slate-500" data-i18n="scan.result.opp_risk">Violation Risk</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 毛利空值占位提示（仅当扫描完成但缺少成本/售价时显示） -->
+                <!-- History Comparison Card (Phase 3.1, Pro only) -->
+                <div id="historyComparisonCard" class="hidden mb-3 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-bold text-blue-800 flex items-center gap-1.5">
+                            <span>📊</span>
+                            <span data-i18n="scan.result.history_compare_title">Compared with Last Scan</span>
+                        </h3>
+                        <span id="histCompareJaccard" class="text-xs px-2 py-1 rounded-full font-bold bg-blue-100 text-blue-700"></span>
+                    </div>
+                    <div id="histCompareContent" class="text-xs text-slate-700 leading-relaxed"></div>
+                </div>
+
+                <!-- Executive Summary (IntelliAudit 2.0) -->
+                <div id="executiveSummaryCard" class="hidden mb-3 p-3 rounded-xl border-2">
+                    <div id="executiveSummaryContent" class="text-sm font-medium"></div>
+                </div>
+
+                <!-- Dimension Tips (IntelliAudit 2.0) -->
+                <div id="dimensionTipsCard" class="hidden mb-3 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-bold text-slate-600 uppercase" data-i18n="scan.result.dimension_tips_title">Improvement Suggestions</h3>
+                        <span id="dimensionTipsBadge" class="text-[10px] px-2 py-0.5 rounded-full font-medium"></span>
+                    </div>
+                    <div id="dimensionTipsList" class="space-y-2"></div>
+                </div>
+
+                <!-- Profit placeholder (when no cost/price provided) -->
                 <div id="marginPlaceholder" class="hidden mb-3 p-3 rounded-xl bg-slate-100 border border-slate-200">
                     <div class="flex items-center gap-3">
                         <span class="text-xl">📊</span>
@@ -181,8 +302,8 @@
                         <div id="lowCount" class="text-lg sm:text-xl font-bold text-gray-600">0</div>
                         <div data-i18n="minor" class="text-xs text-slate-500">Minor</div>
                     </div>
-                    <div class="text-center p-2 bg-blue-50 rounded-lg">
-                        <div id="optimizeCount" class="text-lg sm:text-xl font-bold text-blue-600">0</div>
+                    <div class="text-center p-2 bg-orange-50 rounded-lg">
+                        <div id="optimizeCount" class="text-lg sm:text-xl font-bold text-orange-600">0</div>
                         <div data-i18n="optimize" class="text-xs text-slate-500">Optimize</div>
                     </div>
                 </div>
@@ -241,10 +362,10 @@
                                 <p data-i18n="previewOnly" class="text-sm font-bold mb-2">PREVIEW ONLY</p>
                                 <div class="flex flex-wrap justify-center gap-2 mb-3 text-xs text-gray-300">
                                     <span>🎁 7天免费试用</span>
-                                    <span>💰 RM29/月</span>
+                                    <span>💰 RM59/月</span>
                                     <span>✓ 随时取消</span>
                                 </div>
-                                <button onclick="handleUpgrade()" class="inline-block text-xs bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition" style="text-decoration: none;">
+                                <button id="mainUpgradeBtn" onclick="handleUpgrade()" class="inline-block text-xs bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition" style="text-decoration: none;">
                                     <span data-i18n="upgradeBtn">Upgrade to Pro</span>
                                 </button>
                             </div>
@@ -263,7 +384,7 @@
                     </button>
                     <div id="rewriteResult" class="mt-3 p-3 rounded-lg bg-orange-50 border border-orange-200" style="display: none;">
                         <p id="rewriteText" class="text-sm text-slate-800"></p>
-                        <p class="text-xs text-blue-600 mt-2 font-medium">💡 完整修复方案需 Pro 权限，升级解锁全部功能</p>
+                        <p class="text-xs text-orange-600 mt-2 font-medium">💡 完整修复方案需 Pro 权限，升级解锁全部功能</p>
                     </div>
                 </div>
 
@@ -271,7 +392,7 @@
                 <div id="hygieneArea" class="mt-4" style="display: none;">
                     <div class="p-3 rounded-xl bg-gray-100 border border-gray-200">
                         <div class="flex items-center gap-2 mb-2">
-                            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                            <span class="w-2 h-2 rounded-full bg-orange-400"></span>
                             <h2 data-i18n="hygieneTips" class="text-xs font-medium text-gray-400">Readability Tips</h2>
                         </div>
                         <div id="hygieneList" class="space-y-1"></div>
@@ -283,7 +404,7 @@
                     <p class="text-xs text-gray-500"><span data-i18n="goLeadText">Need bulk scanning or export history?</span></p>
                     <div class="flex flex-wrap justify-center gap-2 mb-2 text-xs text-gray-400">
                         <span>🎁 7天免费试用</span>
-                        <span>💰 RM29/月</span>
+                        <span>💰 RM59/月</span>
                         <span>✓ 随时取消</span>
                     </div>
                     <a href="#" class="text-purple-500 hover:underline text-xs font-medium" id="weakLead"><span data-i18n="goLeadLink">Start 7-day free trial</span></a>
@@ -296,13 +417,36 @@
                     <p class="text-slate-500">
                         <span data-i18n="reportTime">Report generated</span>: <span id="scannedAt"></span>
                     </p>
-                    <a href="/scan" class="text-indigo-600 hover:text-indigo-700 font-medium"><span data-i18n="continueScan">Scan Again</span> →</a>
+                    <a href="/scan" class="text-orange-600 hover:text-orange-700 font-medium"><span data-i18n="continueScan">Scan Again</span> →</a>
                 </div>
             </div>
 
             <!-- Disclaimer -->
             <div class="px-4 py-2 bg-slate-50 border-t text-center">
                 <p data-i18n="footerDisclaimer" class="text-[10px] text-gray-400">Advisory only. Based on publicly available Shopee MY resources. Not affiliated with Shopee/Lazada.</p>
+            </div>
+
+            <!-- User Feedback Entry (Admin 1.0) -->
+            <div class="px-4 py-3 bg-slate-50 border-t">
+                <div id="feedbackSection">
+                    <button onclick="toggleFeedbackForm()" class="w-full flex items-center justify-center gap-2 py-2 text-sm text-orange-600 hover:text-orange-700 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 3v-3z"></path></svg>
+                        <span data-i18n="feedbackLink">Share Feedback</span>
+                    </button>
+                    <div id="feedbackForm" class="hidden mt-2">
+                        <textarea id="feedbackContent" rows="3" maxlength="1000" data-i18n-placeholder="feedbackPlaceholder"
+                            class="w-full px-3 py-2 rounded-lg text-gray-800 border border-gray-300 outline-none focus:border-orange-500 text-sm transition resize-none"
+                            placeholder="Tell us your suggestions or issues..."></textarea>
+                        <div class="flex items-center justify-between mt-2">
+                            <span id="feedbackCharCount" class="text-xs text-gray-400">0 / 1000</span>
+                            <button onclick="submitFeedback()" id="feedbackSubmitBtn"
+                                class="px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-lg transition">
+                                Submit
+                            </button>
+                        </div>
+                        <div id="feedbackMsg" class="hidden mt-2 text-xs"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -316,7 +460,7 @@
                 </svg>
             </button>
             <div class="text-center mb-5">
-                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-500/20 mb-3">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-orange-500/20 mb-3">
                     <span class="text-2xl">🔒</span>
                 </div>
                 <h2 data-i18n="trialModalTitle" class="text-lg sm:text-xl font-bold text-gray-800 mb-1">Unlock 7-Day Free Trial</h2>
@@ -331,7 +475,7 @@
                         <span data-i18n="cancel">Cancel</span>
                     </button>
                     <button type="submit"
-                        class="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-lg transition text-sm">
+                        class="flex-1 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 text-white font-medium rounded-lg transition text-sm">
                         <span data-i18n="trialModalBtn">Unlock Trial</span>
                     </button>
                 </div>
@@ -404,6 +548,39 @@
                 'scan.placeholder.margin_empty': 'Enter your estimated cost and price above to see gross profit and margin level after scanning.',
                 'scan.result.margin_medium': 'Medium Margin',
                 'scan.result.margin_low': 'Low Margin',
+                'scan.result.fee_breakdown_title': 'Fee Breakdown',
+                'scan.result.platform_fees_group': 'Platform Fees',
+                'scan.result.commission': 'Commission (incl. SST)',
+                'scan.result.transaction_fee': 'Transaction Fee',
+                'scan.result.service_fee': 'Service Fee',
+                'scan.result.platform_fee': 'Platform Fee',
+                'scan.result.total_fees': 'Total Platform Fees',
+                'scan.result.net_profit': 'Net Profit',
+                'scan.result.profit_margin': 'Profit Margin',
+                'scan.result.break_even': 'Break-even Price',
+                'scan.result.roi': 'ROI',
+                'scan.result.healthy': 'Healthy',
+                'scan.result.warning': 'Warning',
+                'scan.result.danger': 'Danger',
+                'scan.result.opp_score_title': 'Opportunity Score',
+                'scan.result.opp_premium': 'Excellent Opportunity',
+                'scan.result.opp_good': 'Caution Advised',
+                'scan.result.opp_risky': 'Not Recommended',
+                'scan.result.opp_blocked': 'Blocked',
+                'scan.result.opp_compliance': 'Content Compliance',
+                'scan.result.opp_profit': 'Profit Health',
+                'scan.result.opp_competition': 'Title Quality',
+                'scan.result.opp_risk': 'Violation Risk',
+                'scan.result.break_even_hint': 'Minimum price to cover all costs and fees',
+                'scan.result.target_price_title': 'Target Price Suggestion',
+                'scan.result.history_compare_title': 'Compared with Last Scan',
+                'scan.result.gate_blocked': 'Blocked',
+                'scan.result.gate_passed': 'Passed',
+                'scan.result.dimension_tips_title': 'Improvement Suggestions',
+                'scan.result.action_replace': 'Replace',
+                'scan.result.action_adjust_price': 'Set Price',
+                'scan.result.action_adjust_cost': 'Adjust Cost',
+                'scan.result.action_enhance': 'Enhance',
                 'scan.form.cost_label': 'Est. Cost (RM)',
                 'scan.form.price_label': 'Est. Price (RM)',
                 'fp.email_label': 'Email (Optional)',
@@ -479,6 +656,39 @@
                 'scan.result.margin_high': '高毛利',
                 'scan.result.margin_medium': '中毛利',
                 'scan.result.margin_low': '低毛利',
+                'scan.result.fee_breakdown_title': '费用拆解',
+                'scan.result.platform_fees_group': '平台扣费',
+                'scan.result.commission': '佣金（含SST）',
+                'scan.result.transaction_fee': '交易手续费',
+                'scan.result.service_fee': '服务费',
+                'scan.result.platform_fee': '平台费',
+                'scan.result.total_fees': '平台总费用',
+                'scan.result.net_profit': '净利润',
+                'scan.result.profit_margin': '利润率',
+                'scan.result.break_even': '盈亏平衡售价',
+                'scan.result.roi': '投资回报率',
+                'scan.result.healthy': '健康',
+                'scan.result.warning': '警告',
+                'scan.result.danger': '危险',
+                'scan.result.opp_score_title': '机会评分',
+                'scan.result.opp_premium': '优秀机会',
+                'scan.result.opp_good': '谨慎评估',
+                'scan.result.opp_risky': '不建议',
+                'scan.result.opp_blocked': '已拦截',
+                'scan.result.opp_compliance': '内容合规',
+                'scan.result.opp_profit': '利润健康度',
+                'scan.result.opp_competition': '标题质量',
+                'scan.result.opp_risk': '违规风险',
+                'scan.result.break_even_hint': '覆盖所有成本和费用的最低售价',
+                'scan.result.target_price_title': '目标利润率反推售价',
+                'scan.result.history_compare_title': '与上次扫描对比',
+                'scan.result.gate_blocked': '已拦截',
+                'scan.result.gate_passed': '已通过',
+                'scan.result.dimension_tips_title': '改进建议',
+                'scan.result.action_replace': '替换',
+                'scan.result.action_adjust_price': '设为售价',
+                'scan.result.action_adjust_cost': '调整成本',
+                'scan.result.action_enhance': '优化',
                 'scan.form.cost_label': '预估成本 (RM)',
                 'scan.form.price_label': '预估售价 (RM)',
                 'scan.placeholder.margin_empty': '在上方填入预估成本和售价，扫描后即可查看毛利计算结果和利润率等级。',
@@ -497,8 +707,9 @@
 
         let currentLang = 'en';
         let currentReportData = null;
+        let isProUser = false;
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             currentLang = localStorage.getItem('lang') || 'en';
 
             const reportData = sessionStorage.getItem('complianceReport');
@@ -514,34 +725,39 @@
                     document.querySelector('.max-w-2xl').innerHTML = `
                         <div class="text-center py-12">
                             <p class="text-slate-400 mb-3">${translations[currentLang].noReport}</p>
-                            <a href="/" class="text-indigo-400 hover:text-indigo-300 text-sm">${translations[currentLang].goHome}</a>
+                            <a href="/" class="text-orange-400 hover:text-orange-300 text-sm">${translations[currentLang].goHome}</a>
                         </div>
                     `;
                 }
             } else {
-                console.log('No report data in sessionStorage, using mock data for testing');
-                const mockData = {
-                    success: true,
-                    risk_level: 'HIGH',
-                    violations: [
-                        { type: 'banned_word', level: 'high', field: 'title', matched_word: 'vape', suggestion: 'Remove "vape".', reason: 'Prohibited item', safe_title_template: '' }
-                    ],
-                    score: 70,
-                    score_level: 'STOP',
-                    has_actionable_risk: true,
-                    locked: true,
-                    product_category: 'general',
-                    title: 'test vape product',
-                    description: 'this is a test',
-                    cost_rm: 10.00,
-                    price_rm: 50.00,
-                    gross_profit_rm: 40.00,
-                    margin_percent: 80.00,
-                    margin_level: 'High Margin'
-                };
-                currentReportData = mockData;
+                // P0-1: No mock data fallback — try session recovery API first, then show empty state
+                console.log('No report data in sessionStorage, attempting session recovery...');
+                try {
+                    const recoverRes = await fetch('/api/session/recover');
+                    const recoverData = await recoverRes.json();
+                    if (recoverData.success && recoverData.data) {
+                        console.log('Session recovered successfully');
+                        window.isRecoverySession = true;  // Mark as recovery session for CTA
+                        currentReportData = recoverData.data;
+                        sessionStorage.setItem('complianceReport', JSON.stringify(recoverData.data));
+                        applyLanguage(currentLang);
+                        renderReport(recoverData.data);
+                        // Show recovery banner + toast
+                        showRecoveryBanner(recoverData.scan_timestamp, recoverData.expires_in_minutes);
+                        updateLangToggleLabel();
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Session recovery failed or no session to recover:', e);
+                }
+                // No data available — show empty state
                 applyLanguage(currentLang);
-                renderReport(mockData);
+                document.querySelector('.max-w-2xl').innerHTML = `
+                    <div class="text-center py-12">
+                        <p class="text-slate-400 mb-3">${translations[currentLang].noReport}</p>
+                        <a href="/scan" class="text-orange-400 hover:text-orange-300 text-sm">${translations[currentLang].goHome}</a>
+                    </div>
+                `;
             }
             updateLangToggleLabel();
         });
@@ -565,6 +781,111 @@
             }
         }
 
+        // P1-4: Recovery banner + registration guidance for unauthenticated users
+        function showRecoveryBanner(scanTimestamp, expiresInMinutes) {
+            const isZh = currentLang === 'zh';
+            const timeStr = scanTimestamp ? new Date(scanTimestamp).toLocaleString() : '';
+            
+            // Show a quick toast notification (auto-dismiss after 3s)
+            showRecoveryToast(scanTimestamp, isZh, expiresInMinutes);
+            
+            // Show the detailed banner
+            const banner = document.createElement('div');
+            banner.className = 'mb-4 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30 text-sm';
+            banner.id = 'recoveryBanner';
+
+            let bannerHtml = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="text-orange-400">🔄</span>
+                    <span class="text-orange-300 font-medium">${isZh ? '检测到上次未保存的扫描' : 'Detected unsaved scan from previous session'}</span>
+                    ${timeStr ? `<span class="text-slate-500 text-xs">(${timeStr})</span>` : ''}
+                </div>
+            `;
+
+            // Show registration guidance for non-logged-in users
+            const loggedIn = document.body.dataset.loggedIn === 'true';
+            if (!loggedIn) {
+                const expiryText = expiresInMinutes != null
+                    ? (isZh ? `⏳ 结果将在 ${expiresInMinutes} 分钟后失效` : `⏳ Results expire in ${expiresInMinutes} minutes`)
+                    : '';
+                bannerHtml += `
+                    <div class="mt-3 pt-3 border-t border-orange-500/20">
+                        <p class="text-slate-300 text-xs mb-2">
+                            ${isZh ? '💡 登录即可永久保存本次扫描结果！' : '💡 Sign in to permanently save this scan result!'}
+                        </p>
+                        ${expiryText ? `<p class="text-orange-400 text-xs mb-2">${expiryText}</p>` : ''}
+                        <div class="flex gap-2">
+                            <a href="/login#register" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-semibold transition">
+                                ${isZh ? '✨ 注册 · 立即解锁 14 天 Pro' : '✨ Register · Unlock 14-day Pro'}
+                            </a>
+                            <a href="/login" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-slate-300 rounded-lg text-xs font-medium transition">
+                                ${isZh ? '登录' : 'Login'}
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            banner.innerHTML = bannerHtml;
+            const container = document.querySelector('.max-w-2xl');
+            if (container) {
+                container.insertBefore(banner, container.firstChild);
+            }
+        }
+
+        function showRecoveryToast(scanTimestamp, isZh, expiresInMinutes) {
+            // Remove existing toast
+            const existingToast = document.getElementById('recoveryToast');
+            if (existingToast) existingToast.remove();
+            
+            // Create new toast
+            const toast = document.createElement('div');
+            toast.id = 'recoveryToast';
+            toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 px-5 py-3 text-white rounded-xl shadow-lg z-50 flex items-center gap-3 text-sm font-medium opacity-0 transition-opacity duration-300';
+            
+            const timeStr = scanTimestamp ? new Date(scanTimestamp).toLocaleString() : '';
+            const minsAgo = scanTimestamp ? Math.floor((Date.now() - new Date(scanTimestamp).getTime()) / 60000) : '?';
+            const timeAgo = isZh 
+                ? (minsAgo < 60 ? `${minsAgo} 分钟前` : `${Math.floor(minsAgo/60)} 小时前`) 
+                : (minsAgo < 60 ? `${minsAgo} min ago` : `${Math.floor(minsAgo/60)}h ago`);
+            
+            // Determine toast style based on expiry
+            const isExpiringSoon = expiresInMinutes != null && expiresInMinutes <= 15;
+            
+            if (isExpiringSoon) {
+                // Warning toast: data expiring soon
+                toast.classList.add('bg-amber-500');
+                toast.innerHTML = `
+                    <span class="text-lg">⏳</span>
+                    <span>${isZh 
+                        ? `该扫描结果将在 ${expiresInMinutes} 分钟后失效，✨ 立即注册锁定数据` 
+                        : `Results expire in ${expiresInMinutes} min, ✨ Register to save`}</span>
+                `;
+            } else {
+                // Info toast: data restored
+                toast.classList.add('bg-emerald-600');
+                toast.innerHTML = `
+                    <span class="text-lg">🔄</span>
+                    <span>${isZh ? `已为您恢复 ${timeAgo} 的扫描结果` : `Restored scan results from ${timeAgo}`}</span>
+                `;
+            }
+            
+            document.body.appendChild(toast);
+            
+            // Show toast
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0');
+            });
+            
+            // Auto dismiss after 3 seconds
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
         function applyLanguage(lang) {
             const t = translations[lang];
             document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -577,16 +898,64 @@
             });
         }
 
+        function updateScanLimitReminder(scanCountToday) {
+            const reminder = document.getElementById('scanLimitReminder');
+            if (!reminder) return;
+            
+            const isZh = currentLang === 'zh';
+            const FREE_LIMIT = 5;  // Free user daily scan limit
+            
+            const usedCount = scanCountToday || 0;
+            const remaining = Math.max(0, FREE_LIMIT - usedCount);
+            const limitText = document.getElementById('scanLimitText');
+            const limitIcon = document.getElementById('scanLimitIcon');
+            
+            if (remaining <= 0) {
+                // Limit reached
+                reminder.classList.remove('hidden', 'bg-amber-50', 'border-amber-200');
+                reminder.classList.add('bg-red-50', 'border-red-200');
+                limitText.textContent = isZh ? '今日免费扫描已用完，升级 Pro 继续使用' : 'Daily free scans used up, upgrade to Pro';
+                limitIcon.textContent = '⚠️';
+            } else if (remaining <= 2) {
+                // Low remaining - urgent
+                reminder.classList.remove('hidden', 'bg-amber-50', 'border-amber-200');
+                reminder.classList.add('bg-orange-50', 'border-orange-200');
+                limitText.textContent = isZh 
+                    ? `今日免费扫描仅剩 ${remaining} 次，用完升级 Pro 继续` 
+                    : `Only ${remaining} free scans left today, upgrade for more`;
+                limitIcon.textContent = '⚡';
+            } else {
+                // Normal remaining
+                reminder.classList.remove('hidden', 'bg-red-50', 'border-red-200', 'bg-orange-50', 'border-orange-200');
+                reminder.classList.add('bg-amber-50', 'border-amber-200');
+                limitText.textContent = isZh 
+                    ? `今日免费扫描剩余 ${remaining} 次` 
+                    : `${remaining} free scans remaining today`;
+                limitIcon.textContent = '📊';
+            }
+        }
+
         function renderReport(data) {
             if (!data || typeof data !== 'object') {
                 console.error('Invalid report data:', data);
                 return;
             }
 
+            try {
             console.log('renderReport started with data:', JSON.stringify(data));
 
             const t = translations[currentLang];
             console.log('Translations:', t);
+
+            // Determine Pro status (locked = false means Pro/Trial user)
+            isProUser = data.is_pro !== undefined ? data.is_pro : !data.locked;
+            
+            // Update scan limit reminder for free users
+            if (!isProUser) {
+                updateScanLimitReminder(data.scan_count_today);
+            } else {
+                document.getElementById('scanLimitReminder')?.classList.add('hidden');
+            }
             
             const colors = {
                 HIGH: { bg: 'bg-red-600', headerBg: 'bg-red-50' },
@@ -622,22 +991,37 @@
             }
             console.log('Risk level:', riskLevel);
             
-            const color = colors[riskLevel] || colors.LOW;
             const isZh = currentLang === 'zh';
-            console.log('Color:', color, 'isZh:', isZh);
+            console.log('isZh:', isZh);
 
-            document.getElementById('reportHeader').className = `p-4 sm:p-6 text-center ${color.bg}`;
-            document.getElementById('reportIcon').innerHTML = riskLevel === 'LOW'
-                ? '<svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
-                : '<svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+            // ============ IntelliAudit 2.0: 顶部状态栏四象限动态文案 ============
+            const riskType = data.risk_type || 'WARNING';
+            const statusConfig = {
+                EXCELLENT: {
+                    bg: 'bg-green-500',
+                    icon: '<svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+                    title: isZh ? '检测完成，优质潜力品' : 'Scan Complete: Excellent Product',
+                    summary: isZh ? '利润健康且合规安全，可以放心上架' : 'Healthy profit and compliant. Ready to list.',
+                },
+                WARNING: {
+                    bg: 'bg-amber-500',
+                    icon: '<svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+                    title: isZh ? '检测完成，建议优化细节' : 'Scan Complete: Optimization Recommended',
+                    summary: isZh ? '存在可改进项，优化后可提升转化' : 'Some areas can be improved for better results.',
+                },
+                CRITICAL: {
+                    bg: 'bg-red-600',
+                    icon: '<svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+                    title: isZh ? '检测到风险，建议紧急止损' : 'Risk Detected: Immediate Action Required',
+                    summary: isZh ? '存在严重违规或亏损风险，请立即处理' : 'Severe violation or loss detected. Please take action.',
+                },
+            };
+            const sc = statusConfig[riskType] || statusConfig.WARNING;
 
-            document.getElementById('reportTitle').textContent = riskLevel === 'LOW' ? t.safeTitle
-                : riskLevel === 'MEDIUM' ? t.riskTitle
-                : t.riskTitle;
-
-            const hasEmojiViolation = violationsArray.some(v => getViolationType(v) === 'emoji');
-            document.getElementById('reportSummary').textContent = riskLevel === 'LOW' ? t.safeDesc
-                : (hasEmojiViolation ? t.riskDescEmoji : t.riskDescKeyword);
+            document.getElementById('reportHeader').className = `p-4 sm:p-6 text-center ${sc.bg}`;
+            document.getElementById('reportIcon').innerHTML = sc.icon;
+            document.getElementById('reportTitle').textContent = sc.title;
+            document.getElementById('reportSummary').textContent = sc.summary;
 
             document.getElementById('productTitle').textContent = data.title || '-';
             document.getElementById('productDesc').textContent = data.description || '-';
@@ -739,7 +1123,7 @@
                     } else if (level === 'optimize') {
                         cardClass = 'violation-card-optimize';
                         icon = '💡';
-                        tagClass = 'bg-blue-100 text-blue-700';
+                        tagClass = 'bg-blue-100 text-orange-700';
                         tagText = isZh ? '优化建议' : 'Optimize';
                     } else {
                         cardClass = 'violation-card-low';
@@ -807,6 +1191,24 @@
                     rewriteArea.style.display = 'block';
                 } else {
                     rewriteArea.style.display = 'none';
+                }
+            }
+
+            } catch (renderError) {
+                console.error('Error in renderReport:', renderError);
+                const el = document.querySelector('.max-w-2xl');
+                if (el) {
+                    const existingHtml = el.innerHTML;
+                    if (!existingHtml.includes('合规评分') && !existingHtml.includes('Compliance Score')) {
+                        el.innerHTML = `
+                            <div class="text-center py-12">
+                                <div class="text-4xl mb-3">⚠️</div>
+                                <p class="text-slate-400 mb-2">报告渲染出错，请刷新重试</p>
+                                <p class="text-xs text-slate-500 mb-4">${renderError.message}</p>
+                                <a href="/scan" class="text-orange-400 hover:text-orange-300 text-sm">返回扫描页</a>
+                            </div>
+                        `;
+                    }
                 }
             }
         }
@@ -882,7 +1284,7 @@
                     }
                     return `
                         <div class="flex items-center gap-2">
-                            <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
                             <p class="text-xs text-gray-400">${message}</p>
                         </div>
                     `;
@@ -893,40 +1295,643 @@
         }
 
         function renderMargin(data, t) {
-            const marginCard = document.getElementById('marginCard');
-            const marginPlaceholder = document.getElementById('marginPlaceholder');
-            
-            if (data.gross_profit_rm !== null && data.gross_profit_rm !== undefined && data.margin_percent !== null && data.margin_percent !== undefined) {
-                marginCard.classList.remove('hidden');
-                marginPlaceholder.classList.add('hidden');
-                
-                const gpText = marginCard.querySelector('[data-i18n="scan.result.gross_profit"]');
-                const margin_level = data.margin_level;
-                const badge = document.getElementById('marginLevelBadge');
-                
-                const gp = data.gross_profit_rm.toFixed(2);
-                const margin = data.margin_percent.toFixed(1);
-                
-                if (currentLang === 'zh') {
-                    gpText.textContent = '预估毛利：RM' + gp + '（利润率 ' + margin + '%）';
-                } else {
-                    gpText.textContent = 'Est. Gross Profit: RM' + gp + ' (' + margin + '%)';
+            const profitCard = document.getElementById('profitAnalysisCard');
+            const oppCard = document.getElementById('opportunityScoreCard');
+            const placeholder = document.getElementById('marginPlaceholder');
+
+            console.log('[DEBUG renderMargin] data.profit_analysis:', data.profit_analysis);
+            console.log('[DEBUG renderMargin] data.cost_rm:', data.cost_rm, 'data.price_rm:', data.price_rm);
+
+            // Check if profit_analysis exists (Phase 1 data)
+            if (data.profit_analysis && data.profit_analysis.calculated) {
+                profitCard.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                renderProfitAnalysis(data.profit_analysis, t, isProUser);
+
+                // Phase 2.1: 货币转换提示（仅 Pro 用户且发生转换时显示）
+                const curNote = document.getElementById('currencyNote');
+                if (curNote) {
+                    if (isProUser && data.currency && data.currency !== 'RM' && data.exchange_rate) {
+                        const isZh = currentLang === 'zh';
+                        curNote.textContent = isZh
+                            ? `💱 已按汇率 1 RM = ${data.exchange_rate} ${data.currency} 将输入转为 RM 计算`
+                            : `💱 Converted to RM at 1 RM = ${data.exchange_rate} ${data.currency}`;
+                        curNote.classList.remove('hidden');
+                    } else {
+                        curNote.classList.add('hidden');
+                    }
                 }
-                
-                if (margin_level === 'High Margin') {
-                    badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-green-500/20 text-green-400';
-                    badge.textContent = '🟢 ' + t['scan.result.margin_high'];
-                } else if (margin_level === 'Medium Margin') {
-                    badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-yellow-500/20 text-yellow-400';
-                    badge.textContent = '🟡 ' + t['scan.result.margin_medium'];
+
+                // Update dynamic CTA based on profit status
+                // IntelliAudit 2.0 Pro: 利润红线击穿时，Pro 用户也显示红色 CTA
+                const netProfit = data.profit_analysis?.profit?.net_profit;
+                const alertTriggered = data.profit_alert_triggered === true;
+                if (!isProUser || alertTriggered) {
+                    updateDynamicCTA(data.profit_analysis, netProfit, alertTriggered);
+                }
+            } else if (data.cost_rm != null && data.price_rm != null && data.cost_rm > 0 && data.price_rm > 0) {
+                // Edge case: user provided cost/price but backend returned no analysis
+                // Show locked card anyway to prevent empty result
+                console.warn('[DEBUG renderMargin] cost/price provided but no profit_analysis, showing fallback');
+                profitCard.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                // Build a minimal locked profit_analysis structure
+                const fallbackPa = {
+                    calculated: true,
+                    fee_breakdown: {
+                        commission: null,
+                        transaction_fee: null,
+                        service_fee: null,
+                        platform_fee: null,
+                        total_fees: null,
+                        is_locked: true
+                    },
+                    profit: {
+                        net_profit: null,
+                        profit_margin: null
+                    },
+                    health: { margin_level: 'danger' }
+                };
+                renderProfitAnalysis(fallbackPa, t, isProUser);
+            } else {
+                profitCard.classList.add('hidden');
+            }
+
+            // Check if opportunity_score exists (Phase 1 data)
+            if (data.opportunity_score) {
+                oppCard.classList.remove('hidden');
+                renderOpportunityScore(data.opportunity_score, t, isProUser);
+            } else {
+                oppCard.classList.add('hidden');
+            }
+
+            // Phase 3.1: 历史对比卡片（Pro only）
+            renderHistoryComparison(data.history_comparison, t, isProUser, data.score, data.risk_level);
+
+            // Show placeholder if neither profit nor opportunity data
+            if (!data.profit_analysis && !data.opportunity_score) {
+                placeholder.classList.remove('hidden');
+            } else {
+                placeholder.classList.add('hidden');
+            }
+
+            // Render IntelliAudit 2.0 insights
+            renderInsights(data, t);
+        }
+
+        function renderInsights(data, t) {
+            const summaryCard = document.getElementById('executiveSummaryCard');
+            const summaryContent = document.getElementById('executiveSummaryContent');
+            const tipsCard = document.getElementById('dimensionTipsCard');
+            const tipsList = document.getElementById('dimensionTipsList');
+
+            // Executive Summary
+            if (data.executive_summary) {
+                const es = data.executive_summary;
+                summaryCard.classList.remove('hidden');
+
+                // Level-based styling
+                const styles = {
+                    'error':   { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-800' },
+                    'warning': { bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-800' },
+                    'success': { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-800' },
+                    'info':    { bg: 'bg-orange-50', border: 'border-blue-300', text: 'text-blue-800' },
+                };
+                const s = styles[es.level] || styles['info'];
+                summaryCard.className = `mb-3 p-3 rounded-xl border-2 ${s.bg} ${s.border}`;
+                summaryContent.className = `text-sm font-medium ${s.text}`;
+                summaryContent.textContent = es.message;
+            } else {
+                summaryCard.classList.add('hidden');
+            }
+
+            // Dimension Tips
+            if (data.dimension_tips && data.dimension_tips.length > 0) {
+                tipsCard.classList.remove('hidden');
+                tipsList.innerHTML = '';
+
+                // Set Free/Pro badge
+                const badge = document.getElementById('dimensionTipsBadge');
+                if (isProUser) {
+                    badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-medium bg-orange-100 text-orange-700';
+                    badge.textContent = '⭐ Pro';
                 } else {
-                    badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-red-500/20 text-red-400';
-                    badge.textContent = '🔴 ' + t['scan.result.margin_low'];
+                    badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-medium bg-slate-200 text-slate-500';
+                    badge.textContent = '🔒 Free';
+                }
+
+                const tipStyles = {
+                    'success': { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+                    'warning': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-500' },
+                    'error':   { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-500' },
+                    'info':    { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-500' },
+                };
+
+                data.dimension_tips.forEach(tip => {
+                    const ts = tipStyles[tip.status] || tipStyles['info'];
+                    const dimLabels = {
+                        'compliance': t['scan.result.opp_compliance'] || 'Compliance',
+                        'profit': t['scan.result.opp_profit'] || 'Profit',
+                        'title': t['scan.result.opp_competition'] || 'Title',
+                    };
+                    const dimLabel = dimLabels[tip.dimension] || tip.dimension;
+
+                    const item = document.createElement('div');
+                    item.className = `flex items-start gap-2 p-2 rounded-lg ${ts.bg}`;
+
+                    let actionHtml = '';
+                    if (tip.quick_action) {
+                        const actionLabels = {
+                            'REPLACE_TEXT': t['scan.result.action_replace'] || 'Replace',
+                            'ADJUST_PRICE': t['scan.result.action_adjust_price'] || 'Set Price',
+                            'ADJUST_COST': t['scan.result.action_adjust_cost'] || 'Adjust Cost',
+                            'ENHANCE_TITLE': t['scan.result.action_enhance'] || 'Enhance',
+                        };
+                        const actionLabel = actionLabels[tip.quick_action.type] || tip.quick_action.type;
+                        actionHtml = ` <button class="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 hover:bg-orange-200 transition font-medium" onclick="handleQuickAction('${tip.quick_action.type}', ${tip.quick_action.target_value || null})">${actionLabel}</button>`;
+                    } else if (tip.quick_action === null && isProUser === false && tip.status !== 'success') {
+                        // Free user sees upgrade prompt for quick actions
+                        actionHtml = ` <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">🔒 Pro</span>`;
+                    }
+
+                    item.innerHTML = `
+                        <span class="w-2 h-2 rounded-full ${ts.dot} mt-1.5 flex-shrink-0"></span>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">${dimLabel}</span>
+                                <span class="text-[10px] text-slate-400">·</span>
+                                <span class="text-[10px] font-bold ${ts.text}">${tip.score}/100</span>
+                            </div>
+                            <span class="text-xs ${ts.text}">${tip.tip}</span>
+                            ${actionHtml}
+                        </div>
+                    `;
+                    tipsList.appendChild(item);
+                });
+            } else {
+                tipsCard.classList.add('hidden');
+            }
+        }
+
+        function handleQuickAction(type, targetValue) {
+            if (type === 'ADJUST_PRICE' && targetValue) {
+                const priceInput = document.getElementById('price_rm');
+                if (priceInput) {
+                    priceInput.value = targetValue.toFixed(2);
+                    priceInput.dispatchEvent(new Event('input'));
+                }
+                showToast(currentLang === 'zh' ? '已填入建议售价' : 'Suggested price applied');
+            } else if (type === 'ADJUST_COST' && targetValue) {
+                const costInput = document.getElementById('cost_rm');
+                if (costInput) {
+                    costInput.value = targetValue.toFixed(2);
+                    costInput.dispatchEvent(new Event('input'));
+                }
+                showToast(currentLang === 'zh' ? '已填入目标成本' : 'Target cost applied');
+            } else if (type === 'ENHANCE_TITLE') {
+                showToast(currentLang === 'zh' ? '请在标题中补充品牌、型号、颜色等关键词' : 'Add brand, model, color keywords to your title');
+            } else if (type === 'REPLACE_TEXT') {
+                showToast(currentLang === 'zh' ? '请在标题中高亮并替换该违规词' : 'Highlight and replace the violation word in your title');
+            }
+        }
+
+        function renderProfitAnalysis(pa, t, isPro) {
+            console.log('[DEBUG renderProfitAnalysis] pa:', JSON.stringify(pa));
+            console.log('[DEBUG renderProfitAnalysis] isPro:', isPro);
+            
+            if (!pa) {
+                console.warn('renderProfitAnalysis: no profit analysis data');
+                return;
+            }
+            
+            const fb = pa.fee_breakdown || {};
+            const profit = pa.profit || {};
+            const health = pa.health || {};
+            const isLocked = fb && fb.is_locked === true;
+            const _isZh = currentLang === 'zh';
+            
+            console.log('[DEBUG renderProfitAnalysis] fb:', fb);
+            console.log('[DEBUG renderProfitAnalysis] profit:', profit);
+            console.log('[DEBUG renderProfitAnalysis] isLocked:', isLocked);
+
+            // Render fee breakdown list
+            const listEl = document.getElementById('feeBreakdownList');
+            if (!listEl) {
+                console.warn('renderProfitAnalysis: feeBreakdownList element not found');
+                return;
+            }
+
+            if (isPro) {
+                // Pro: Full fee breakdown
+                const feeItems = [
+                    { label: t['scan.result.commission'], value: fb?.commission, color: 'text-rose-600' },
+                    { label: t['scan.result.transaction_fee'], value: fb?.transaction_fee, color: 'text-amber-600' },
+                    { label: t['scan.result.service_fee'], value: fb?.service_fee, color: 'text-purple-600' },
+                    { label: t['scan.result.platform_fee'], value: fb?.platform_fee, color: 'text-orange-600' },
+                    { label: t['scan.result.total_fees'], value: fb?.total_fees, color: 'text-red-700 font-bold' },
+                ];
+
+                listEl.innerHTML = feeItems.map(item => `
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-600">${item.label}</span>
+                        <span class="${item.color}">RM ${item.value != null ? item.value.toFixed(2) : '--.--'}</span>
+                    </div>
+                `).join('');
+            } else if (isLocked) {
+                // Free (locked): Show total_fees as black box hook, mask all details
+                const totalFees = fb?.total_fees;
+                const totalFeesDisplay = totalFees != null && totalFees !== undefined ? `RM ${Number(totalFees).toFixed(2)}` : 'RM --.--';
+
+                listEl.innerHTML = `
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">${t['scan.result.commission']}</span>
+                        <span class="text-slate-400">🔒 RM --.--</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">${t['scan.result.transaction_fee']}</span>
+                        <span class="text-slate-400">🔒 RM --.--</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">${t['scan.result.service_fee']}</span>
+                        <span class="text-slate-400">🔒 RM --.--</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">${t['scan.result.platform_fee']}</span>
+                        <span class="text-slate-400">🔒 RM --.--</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm mt-1 pt-1 border-t border-slate-200">
+                        <span class="text-slate-500 font-semibold">${t['scan.result.total_fees']}</span>
+                        <span class="text-red-700 font-bold">${totalFeesDisplay}</span>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <a href="#" onclick="handleUpgrade('fee_breakdown_detail'); return false;" class="text-[10px] px-3 py-1 rounded-full bg-orange-100 text-orange-700 hover:bg-orange-200 transition font-medium inline-block">
+                            🔓 升级 Pro 查看明细 / Upgrade for details
+                        </a>
+                    </div>
+                    <div class="mt-1.5 text-[10px] text-slate-400 leading-relaxed">
+                        *${_isZh ? '平台总费用 = 售价 × (佣金费率 + 交易手续费率) + 固定服务费' : 'Total Fees = Price × (Commission% + Transaction Fee%) + Fixed Service Fee'}
+                    </div>
+                `;
+            } else {
+                // Fallback: Masked fee breakdown with upgrade prompt
+                const feeItems = [
+                    { label: t['scan.result.commission'], color: 'text-slate-400' },
+                    { label: t['scan.result.transaction_fee'], color: 'text-slate-400' },
+                    { label: t['scan.result.service_fee'], color: 'text-slate-400' },
+                    { label: t['scan.result.platform_fee'], color: 'text-slate-400' },
+                    { label: t['scan.result.total_fees'], color: 'text-slate-500 font-bold' },
+                ];
+
+                listEl.innerHTML = feeItems.map((item, i) => `
+                    <div class="flex items-center justify-between text-sm ${i === feeItems.length - 1 ? 'mt-1 pt-1 border-t border-slate-200' : ''}">
+                        <span class="text-slate-400">${item.label}</span>
+                        <span class="${item.color}">🔒 RM --.--</span>
+                    </div>
+                `).join('') + `
+                    <div class="mt-2 text-center">
+                        <a href="#" onclick="handleUpgrade('fee_breakdown_masked'); return false;" class="text-[10px] px-3 py-1 rounded-full bg-orange-100 text-orange-700 hover:bg-orange-200 transition font-medium inline-block">
+                            🔓 升级 Pro 查看费用拆解 / Upgrade Pro
+                        </a>
+                    </div>
+                `;
+            }
+
+            // Key metrics - Free users see net profit and margin only
+            const netProfitVal = profit?.net_profit;
+            const profitMarginVal = profit?.profit_margin;
+            
+            if (netProfitVal != null) {
+                document.getElementById('netProfitValue').textContent = 'RM ' + netProfitVal.toFixed(2);
+            } else {
+                document.getElementById('netProfitValue').textContent = 'RM --';
+            }
+            
+            if (profitMarginVal != null) {
+                document.getElementById('profitMarginValue').textContent = profitMarginVal.toFixed(1) + '%';
+            } else {
+                document.getElementById('profitMarginValue').textContent = '--%';
+            }
+
+            if (isPro) {
+                const breakEven = profit?.break_even_price;
+                const roi = profit?.roi;
+                document.getElementById('breakEvenValue').textContent = breakEven != null ? 'RM ' + breakEven.toFixed(2) : 'RM --';
+                document.getElementById('roiValue').textContent = roi != null ? roi.toFixed(1) + '%' : '--%';
+            } else {
+                document.getElementById('breakEvenValue').textContent = '🔒 Pro';
+                document.getElementById('roiValue').textContent = '🔒 Pro';
+            }
+
+            // Net profit color
+            const netProfitEl = document.getElementById('netProfitValue');
+            if (netProfitVal != null && netProfitVal > 0) {
+                netProfitEl.className = 'text-lg font-bold text-emerald-700';
+            } else {
+                netProfitEl.className = 'text-lg font-bold text-red-600';
+            }
+
+            // Health badge
+            const badge = document.getElementById('profitHealthBadge');
+            const level = health?.margin_level;
+            if (level === 'healthy') {
+                badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-700';
+                badge.textContent = '✅ ' + t['scan.result.healthy'];
+            } else if (level === 'warning') {
+                badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-amber-500/20 text-amber-700';
+                badge.textContent = '⚠️ ' + t['scan.result.warning'];
+            } else {
+                badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-red-500/20 text-red-700';
+                badge.textContent = '🔴 ' + t['scan.result.danger'];
+            }
+
+            // IntelliAudit 2.0 Pro: 目标利润率反推售价卡片（三分支展示）
+            const targetCard = document.getElementById('targetPriceCard');
+            const targetContent = document.getElementById('targetPriceContent');
+            const tpi = pa.target_price_info;
+            if (targetCard && targetContent) {
+                if (isPro && tpi && tpi.target_price != null && tpi.feasible) {
+                    const delta = tpi.delta;
+                    const currentMargin = tpi.current_margin;
+                    const targetMargin = tpi.target_margin;
+                    const isZh = currentLang === 'zh';
+                    const achieved = (currentMargin != null) && (currentMargin >= targetMargin);
+                    let html;
+                    if (achieved) {
+                        // 分支1：实际利润率 ≥ 目标利润率 → 可降价上限
+                        const maxDrop = Math.abs(delta);
+                        const dropHtml = `<span class="text-emerald-700 font-bold">-${maxDrop.toFixed(2)}</span>`;
+                        html = isZh
+                            ? `🎉 当前利润率 <b>${currentMargin.toFixed(1)}%</b> 已超出目标 <b>${targetMargin}%</b>，最多可降价至 <b class="text-indigo-700">RM ${tpi.target_price.toFixed(2)}</b> 仍达标（下调上限 ${dropHtml}）`
+                            : `🎉 Current margin <b>${currentMargin.toFixed(1)}%</b> exceeds target <b>${targetMargin}%</b>. Can lower price to <b class="text-indigo-700">RM ${tpi.target_price.toFixed(2)}</b> and still meet goal (max drop ${dropHtml})`;
+                    } else {
+                        // 分支2：实际利润率 < 目标利润率 → 建议涨价
+                        const raiseHtml = `<span class="text-amber-700 font-bold">+RM ${delta.toFixed(2)}</span>`;
+                        html = isZh
+                            ? `要达到 <b>${targetMargin}%</b> 利润率，建议售价 <b class="text-indigo-700">RM ${tpi.target_price.toFixed(2)}</b>，当前 <b>RM ${(tpi.current_price || 0).toFixed(2)}</b>（利润率 ${currentMargin != null ? currentMargin.toFixed(1) + '%' : '?'}），建议 ${raiseHtml}`
+                            : `To reach <b>${targetMargin}%</b> margin, suggested price <b class="text-indigo-700">RM ${tpi.target_price.toFixed(2)}</b>, current <b>RM ${(tpi.current_price || 0).toFixed(2)}</b> (margin ${currentMargin != null ? currentMargin.toFixed(1) + '%' : '?'}), suggested ${raiseHtml}`;
+                    }
+                    targetContent.innerHTML = html;
+                    targetCard.classList.remove('hidden');
+                    // Phase 4.3: 埋点 target_price_viewed
+                    trackEvent('target_price_viewed', {
+                        target_margin: tpi.target_margin,
+                        target_price: tpi.target_price,
+                        current_price: tpi.current_price || 0,
+                        current_margin: currentMargin,
+                        delta: tpi.delta,
+                        feasible: true,
+                        achieved: achieved,
+                    });
+                } else if (isPro && tpi && (tpi.target_price == null || !tpi.feasible)) {
+                    // 分支3：无法到达目标（分母≤0）
+                    const isZh = currentLang === 'zh';
+                    targetContent.innerHTML = isZh
+                        ? `⚠️ 目标利润率 <b>${tpi.target_margin}%</b> 超过费率上限，当前费用结构下无法实现，建议优化成本。`
+                        : `⚠️ Target margin <b>${tpi.target_margin}%</b> exceeds fee ceiling under current cost structure. Consider optimizing costs.`;
+                    targetCard.classList.remove('hidden');
+                    // Phase 4.3: 埋点 target_price_viewed（不可行场景）
+                    trackEvent('target_price_viewed', {
+                        target_margin: tpi.target_margin,
+                        feasible: false,
+                    });
+                } else {
+                    targetCard.classList.add('hidden');
+                }
+            }
+        }
+
+        function updateDynamicCTA(profitAnalysis, netProfit, profitAlertTriggered) {
+            const btn = document.getElementById('mainUpgradeBtn');
+            if (!btn) return;
+
+            const isZh = currentLang === 'zh';
+            const span = btn.querySelector('span');
+
+            // Remove existing dynamic classes
+            btn.classList.remove('bg-purple-600', 'hover:bg-purple-700',
+                                'bg-red-500', 'hover:bg-red-600',
+                                'bg-orange-500', 'hover:bg-orange-600',
+                                'bg-emerald-600', 'hover:bg-emerald-700',
+                                'bg-blue-500', 'hover:bg-blue-600');
+
+            // Scenario 3: Unauthenticated recovery
+            if (window.isRecoverySession && !document.body.dataset.loggedIn) {
+                btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                if (span) {
+                    span.textContent = isZh
+                        ? '⏳ 结果即将失效，✨ 立即注册锁定数据'
+                        : '⏳ Results expiring, ✨ Register to save data';
+                }
+                return;
+            }
+
+            // IntelliAudit 2.0 Pro: 利润红线击穿 → CTA 变红（优先级高于其他场景）
+            if (profitAlertTriggered) {
+                btn.classList.add('bg-red-500', 'hover:bg-red-600');
+                if (span) {
+                    span.textContent = isZh
+                        ? '🚨 利润低于红线，立即调整售价'
+                        : '🚨 Profit below threshold — adjust price now';
+                }
+                return;
+            }
+
+            const isLoss = netProfit != null && netProfit < 0;
+
+            if (isLoss) {
+                // Loss scenario: Urgent CTA with red color
+                btn.classList.add('bg-red-500', 'hover:bg-red-600');
+                if (span) {
+                    span.textContent = isZh
+                        ? '🚑 查看亏损原因 & 获取优化方案'
+                        : '🚑 Fix Loss & Get Optimization Plan';
                 }
             } else {
-                marginCard.classList.add('hidden');
-                marginPlaceholder.classList.remove('hidden');
+                // Profit scenario: Brand color CTA
+                btn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+                if (span) {
+                    span.textContent = isZh
+                        ? '✨ 查看详细费用拆解 & 解锁 Pro 体验'
+                        : '✨ Unlock Pro for Full Fee Breakdown';
+                }
             }
+        }
+
+        function renderOpportunityScore(os, t, isPro) {
+            const dims = os.dimensions;
+
+            // Total score - visible to all users
+            document.getElementById('oppTotalScore').textContent = os.score;
+            document.getElementById('oppScoreBar').style.width = os.score + '%';
+
+            // Dimension scores - Pro only, except risk (违规风险) which is open to all
+            const dimElements = [
+                { id: 'oppCompliance', value: dims.compliance, locked: true },      // 合规: 锁定
+                { id: 'oppProfit', value: dims.profit, locked: true },              // 利润: 锁定
+                { id: 'oppCompetition', value: dims.competition, locked: true },    // 标题: 锁定
+                { id: 'oppRisk', value: dims.risk, locked: false },                 // 风险: 开放（透视镜效应）
+            ];
+
+            dimElements.forEach(dim => {
+                const el = document.getElementById(dim.id);
+                if (el) {
+                    if (isPro || !dim.locked) {
+                        // Pro 用户看全部，或免费用户看开放维度（违规风险）
+                        el.textContent = dim.value;
+                        el.className = el.className.replace('text-slate-400', 'text-slate-700');
+                        
+                        // 给开放的风险维度添加视觉提示
+                        if (!isPro && !dim.locked) {
+                            const parentEl = el.closest('.flex');
+                            if (parentEl && !parentEl.querySelector('[data-open-badge]')) {
+                                const badge = document.createElement('span');
+                                badge.setAttribute('data-open-badge', 'true');
+                                badge.className = 'text-[8px] px-1 py-0.5 bg-green-100 text-green-700 rounded ml-1';
+                                badge.textContent = '✓';
+                                parentEl.appendChild(badge);
+                            }
+                        }
+                    } else {
+                        el.textContent = '🔒';
+                        el.className = el.className.replace('text-slate-700', 'text-slate-400');
+                    }
+                }
+            });
+
+            // Score level badge - visible to all
+            const badge = document.getElementById('oppScoreBadge');
+            const level = os.score_level;
+            if (level === 'premium') {
+                badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-orange-500/20 text-orange-700';
+                badge.textContent = '⭐ ' + t['scan.result.opp_premium'];
+            } else if (level === 'good') {
+                badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-emerald-500/20 text-emerald-700';
+                badge.textContent = '✅ ' + t['scan.result.opp_good'];
+            } else if (level === 'risky') {
+                badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-amber-500/20 text-amber-700';
+                badge.textContent = '⚠️ ' + t['scan.result.opp_risky'];
+            } else {
+                badge.className = 'text-xs px-2 py-1 rounded-full font-bold bg-red-500/20 text-red-700';
+                badge.textContent = '🚫 ' + t['scan.result.opp_blocked'];
+            }
+
+            // Gate status - Pro sees full reason, Free sees simplified
+            const gateEl = document.getElementById('oppGateStatus');
+            if (os.gate_passed) {
+                gateEl.innerHTML = '<span class="text-emerald-600">✓ ' + t['scan.result.gate_passed'] + '</span>';
+            } else {
+                if (isPro) {
+                    gateEl.innerHTML = '<span class="text-red-600">🚫 ' + t['scan.result.gate_blocked'] + ': ' + (os.gate_reason || '') + '</span>';
+                } else {
+                    gateEl.innerHTML = '<span class="text-red-600">🚫 ' + t['scan.result.gate_blocked'] + '</span>';
+                }
+                document.getElementById('oppScoreBar').style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+            }
+
+            // Penalty indicator - Pro only. Priority: profit_alert (threshold hard-cap) > margin_penalty
+            const profitAlert = os.details && os.details.profit_alert;
+            const mp = os.margin_penalty || {};
+            const source = mp.source || (os.details && os.details.margin_penalty && os.details.margin_penalty.source);
+            if (isPro && (profitAlert && profitAlert.triggered || mp.applied)) {
+                const penaltyNote = document.createElement('div');
+                penaltyNote.className = 'text-[10px] text-amber-600 mt-1';
+                let text = '';
+                // 优先展示最低利润门槛触发的二次惩罚文案（硬砍到40）
+                if (profitAlert && profitAlert.triggered) {
+                    const orig = mp.original_score || (os.details && os.details.margin_penalty && os.details.margin_penalty.original_score) || '?';
+                    const inter = mp.intermediate_score || (os.details && os.details.margin_penalty && os.details.margin_penalty.intermediate_score);
+                    const final_ = os.score;
+                    if (inter !== null && inter !== undefined && inter !== orig) {
+                        text = (currentLang === 'zh'
+                            ? ('⚠ 净利润 RM ' + profitAlert.net_profit + ' 未达最低目标 RM ' + profitAlert.threshold + '，评分从 ' + orig + ' → ' + inter + ' → ' + final_ + '（三级限制）')
+                            : ('⚠ Net profit RM ' + profitAlert.net_profit + ' below target RM ' + profitAlert.threshold + ', score capped ' + orig + ' → ' + inter + ' → ' + final_));
+                    } else {
+                        text = (currentLang === 'zh'
+                            ? ('⚠ 净利润 RM ' + profitAlert.net_profit + ' 未达最低目标 RM ' + profitAlert.threshold + '，评分强制限制至 ' + final_)
+                            : ('⚠ Net profit RM ' + profitAlert.net_profit + ' below target RM ' + profitAlert.threshold + ', score hard capped at ' + final_));
+                    }
+                } else if (mp.applied) {
+                    // 只有第一层利润率惩罚（无 threshold 硬砍）
+                    const orig = mp.original_score || (os.details && os.details.margin_penalty && os.details.margin_penalty.original_score) || '?';
+                    text = (currentLang === 'zh'
+                        ? '⚠ 利润率较低，评分已从 ' + orig + ' 限制至 ' + os.score
+                        : '⚠ Low profit margin, score capped from ' + orig + ' to ' + os.score);
+                }
+                if (text) {
+                    penaltyNote.textContent = text;
+                    gateEl.appendChild(penaltyNote);
+                }
+            }
+
+            // Free user upgrade prompt
+            if (!isPro) {
+                const upgradeNote = document.createElement('div');
+                upgradeNote.className = 'text-[10px] mt-1';
+                upgradeNote.innerHTML = '<a href="#" onclick="handleUpgrade(\'dimension_detail\'); return false;" class="text-orange-600 hover:text-orange-700 font-medium">🔓 升级 Pro 查看维度详情 / Upgrade for details</a>';
+                gateEl.appendChild(upgradeNote);
+            }
+        }
+
+        // Phase 3.1: 历史对比卡片渲染（Pro only）
+        function renderHistoryComparison(hc, t, isPro, currentScore, currentRisk) {
+            const card = document.getElementById('historyComparisonCard');
+            const jaccardEl = document.getElementById('histCompareJaccard');
+            const contentEl = document.getElementById('histCompareContent');
+            if (!card || !isPro || !hc) {
+                if (card) card.classList.add('hidden');
+                return;
+            }
+            const isZh = currentLang === 'zh';
+            const jaccardPct = Math.round((hc.jaccard_similarity || 0) * 100);
+            jaccardEl.textContent = isZh ? `相似度 ${jaccardPct}%` : `Similarity ${jaccardPct}%`;
+
+            // 评分变化
+            const prevScore = hc.previous_score;
+            let scoreChangeHtml = '';
+            if (prevScore != null && currentScore != null) {
+                const delta = currentScore - prevScore;
+                let arrow = '→', color = 'text-slate-600';
+                if (delta > 0) { arrow = '↑'; color = 'text-emerald-600'; }
+                else if (delta < 0) { arrow = '↓'; color = 'text-red-600'; }
+                scoreChangeHtml = `<div class="mt-1.5">${isZh ? '合规评分' : 'Compliance Score'}: <b>${prevScore}</b> <span class="${color} font-bold">${arrow} ${currentScore}</span></div>`;
+            }
+
+            // 风险变化
+            const prevRisk = (hc.previous_risk_level || '').toUpperCase();
+            const curRisk = (currentRisk || '').toUpperCase();
+            let riskChangeHtml = '';
+            if (prevRisk && curRisk) {
+                riskChangeHtml = `<div class="mt-1">${isZh ? '风险等级' : 'Risk Level'}: <b>${prevRisk}</b> → <b>${curRisk}</b></div>`;
+            }
+
+            // 新增/已解决违规
+            const added = hc.added_violations || [];
+            const resolved = hc.resolved_violations || [];
+            let violationChangesHtml = '';
+            if (added.length > 0) {
+                violationChangesHtml += `<div class="mt-1.5 text-red-700">🆕 ${isZh ? '新增违规' : 'New violations'}: <b>${added.join(', ')}</b></div>`;
+            }
+            if (resolved.length > 0) {
+                violationChangesHtml += `<div class="mt-0.5 text-emerald-700">✅ ${isZh ? '已解决违规' : 'Resolved violations'}: <b>${resolved.join(', ')}</b></div>`;
+            }
+            if (added.length === 0 && resolved.length === 0 && jaccardPct === 100) {
+                violationChangesHtml = `<div class="mt-1.5 text-emerald-700">${isZh ? '✓ 违规词无变化' : '✓ No violation changes'}</div>`;
+            }
+
+            const prevTime = hc.previous_scan_time ? new Date(hc.previous_scan_time + (hc.previous_scan_time.endsWith('Z') ? '' : 'Z')).toLocaleString() : '--';
+            contentEl.innerHTML = `
+                <div class="text-slate-500">${isZh ? '上次扫描' : 'Last scan'}: ${prevTime}</div>
+                ${scoreChangeHtml}${riskChangeHtml}${violationChangesHtml}
+            `;
+            card.classList.remove('hidden');
+            // Phase 4.3: 埋点 history_compare_viewed
+            trackEvent('history_compare_viewed', {
+                jaccard_similarity: hc.jaccard_similarity || 0,
+                previous_score: hc.previous_score,
+                current_score: currentScore,
+                added_count: (hc.added_violations || []).length,
+                resolved_count: (hc.resolved_violations || []).length,
+            });
         }
 
         function copySafeTitle() {
@@ -990,12 +1995,12 @@
 
             if (navigator.share) {
                 const shareText = currentLang === 'zh'
-                    ? `Shopee MY 合规检测 - 评分: ${currentReportData.score}/100`
-                    : `Shopee MY Compliance Checker - Score: ${currentReportData.score}/100`;
+                    ? `Compliance MY 预审报告 - 评分: ${currentReportData.score}/100`
+                    : `Compliance MY Pre-Audit Report - Score: ${currentReportData.score}/100`;
 
                 try {
                     await navigator.share({
-                        title: 'Shopee MY Compliance Report',
+                        title: 'Compliance MY Pre-Audit Report',
                         text: shareText,
                         url: shareUrl
                     });
@@ -1047,12 +2052,25 @@
             return null;
         }
 
+        // Phase 4.3: 通用埋点上报（fire-and-forget，失败静默）
+        async function trackEvent(eventName, eventData = {}) {
+            try {
+                await fetch('/api/user/event/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ event_name: eventName, event_data: eventData }),
+                });
+            } catch (e) {
+                // 静默吞掉，不影响主流程
+            }
+        }
+
         function downloadReportCard() {
             if (!currentReportData) return;
 
             const canvas = document.createElement('canvas');
             canvas.width = 600;
-            canvas.height = 400;
+            canvas.height = 500;
             const ctx = canvas.getContext('2d');
 
             const score = currentReportData.score || 100;
@@ -1063,17 +2081,19 @@
             const title = currentReportData.title || '';
             const isZh = currentLang === 'zh';
 
+            // Background
             ctx.fillStyle = '#1e293b';
-            ctx.fillRect(0, 0, 600, 400);
+            ctx.fillRect(0, 0, 600, 500);
 
             const centerX = 300;
-            const centerY = 140;
+            const centerY = 120;
             const radius = 70;
 
             let scoreColor = '#10b981';
             if (score < 60) scoreColor = '#ef4444';
             else if (score < 80) scoreColor = '#f59e0b';
 
+            // Score circle
             ctx.beginPath();
             ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
             ctx.fillStyle = '#334155';
@@ -1095,28 +2115,64 @@
             ctx.fillStyle = '#94a3b8';
             ctx.fillText('/ 100', centerX, centerY + 32);
 
+            // Risk level text
             let riskText = isZh ? '低风险 / 通过' : 'LOW RISK';
-            if (score >= 80) riskText = 'GO';
-            else if (score >= 60) riskText = 'REVIEW';
-            else riskText = 'STOP';
+            if (score >= 80) riskText = isZh ? '通过 / GO' : 'GO';
+            else if (score >= 60) riskText = isZh ? '待审核 / REVIEW' : 'REVIEW';
+            else riskText = isZh ? '拦截 / STOP' : 'STOP';
 
             ctx.fillStyle = scoreColor;
             ctx.font = 'bold 18px Inter, sans-serif';
             ctx.fillText(riskText, centerX, centerY + 110);
 
+            // Title
             ctx.fillStyle = '#e2e8f0';
             ctx.font = '14px Inter, sans-serif';
-            ctx.fillText(title.substring(0, 50) + (title.length > 50 ? '...' : ''), centerX, 280);
+            ctx.fillText(title.substring(0, 50) + (title.length > 50 ? '...' : ''), centerX, 260);
 
+            // Brand info
             ctx.fillStyle = '#64748b';
             ctx.font = '12px Inter, sans-serif';
-            ctx.fillText('shopee-compliance.tool', centerX, 350);
-            ctx.fillText(new Date().toLocaleDateString(), centerX, 370);
+            ctx.fillText('shopee-compliance.tool', centerX, 290);
+            ctx.fillText(new Date().toLocaleDateString(), centerX, 308);
 
+            // ============ Watermark Section ============
+            // Add watermark: "由 AI 生成" stamp + branding
+            const watermarkY = 380;
+            
+            // Watermark background
+            ctx.fillStyle = 'rgba(249, 115, 22, 0.1)';
+            ctx.fillRect(40, watermarkY - 30, 520, 80);
+            
+            // Watermark text - AI generated stamp
+            ctx.save();
+            ctx.translate(centerX, watermarkY);
+            ctx.rotate(-5 * Math.PI / 180);
+            ctx.font = 'bold 13px Inter, sans-serif';
+            ctx.fillStyle = 'rgba(249, 115, 22, 0.4)';
+            ctx.textAlign = 'center';
+            ctx.fillText(isZh ? '🤖 由 AI 自动生成 · 仅供参考' : '🤖 AI GENERATED · FOR REFERENCE ONLY', 0, 0);
+            ctx.restore();
+            
+            // Watermark bottom bar
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(0, 460, 600, 40);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(isZh ? 'Shopee Compliance MVP · 智能合规检测工具' : 'Shopee Compliance MVP · Smart Compliance Tool', centerX, 478);
+            ctx.fillStyle = '#475569';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.fillText('shopee-compliance.tool', centerX, 492);
+
+            // Download
             const link = document.createElement('a');
             link.download = `compliance-report-${Date.now()}.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
+            
+            // Show success toast
+            showToast(isZh ? '报告已下载' : 'Report downloaded');
         }
 
         function showFalsePositiveForm() {
@@ -1186,7 +2242,7 @@
                 goLeadArea.classList.remove('hidden');
                 weakLead.addEventListener('click', (e) => {
                     e.preventDefault();
-                    window.location.href = '/login';
+                    window.location.href = '/login#register';
                 });
             } else {
                 goLeadArea.classList.add('hidden');
@@ -1198,15 +2254,18 @@
             document.getElementById('trialModal').classList.remove('flex');
         }
 
-        async function handleUpgrade() {
+        async function handleUpgrade(position) {
             try {
                 await fetch('/api/upgrade-clicked', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ source_page: 'result', button_position: 'safe_title_section' })
+                    body: JSON.stringify({ source_page: 'result', button_position: position || 'safe_title_section' })
                 });
             } catch (e) {}
-            window.location.href = '/login';
+            
+            // 差异化跳转：未登录→登录注册页，已登录→定价页
+            const isLoggedIn = document.body.dataset.loggedIn === 'true' || document.cookie.includes('session_token');
+            window.location.href = isLoggedIn ? '/pricing/pay' : '/login#register';
         }
 
         async function recordUpgradeIntent(email) {
@@ -1229,10 +2288,80 @@
             if (trialForm) {
                 trialForm.addEventListener('submit', (e) => {
                     e.preventDefault();
-                    window.location.href = '/login';
+                    const isLoggedIn = document.body.dataset.loggedIn === 'true';
+                    window.location.href = isLoggedIn ? '/pricing/pay' : '/login#register';
                 });
             }
         });
+
+        // ============ Admin 1.0: User Feedback ============
+        function toggleFeedbackForm() {
+            const form = document.getElementById('feedbackForm');
+            form.classList.toggle('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const textarea = document.getElementById('feedbackContent');
+            if (textarea) {
+                textarea.addEventListener('input', function() {
+                    document.getElementById('feedbackCharCount').textContent = `${this.value.length} / 1000`;
+                });
+            }
+        });
+
+        async function submitFeedback() {
+            const content = document.getElementById('feedbackContent').value.trim();
+            const msgDiv = document.getElementById('feedbackMsg');
+            const btn = document.getElementById('feedbackSubmitBtn');
+
+            if (!content) {
+                msgDiv.textContent = 'Content cannot be empty';
+                msgDiv.className = 'mt-2 text-xs text-red-500';
+                msgDiv.classList.remove('hidden');
+                return;
+            }
+            if (content.length < 5) {
+                msgDiv.textContent = 'Please enter at least 5 characters';
+                msgDiv.className = 'mt-2 text-xs text-red-500';
+                msgDiv.classList.remove('hidden');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+
+            try {
+                const resp = await fetch('/api/admin/feedback/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content }),
+                });
+                const data = await resp.json();
+
+                if (resp.ok) {
+                    msgDiv.textContent = data.message || 'Thank you for your feedback!';
+                    msgDiv.className = 'mt-2 text-xs text-green-500';
+                    msgDiv.classList.remove('hidden');
+                    document.getElementById('feedbackContent').value = '';
+                    document.getElementById('feedbackCharCount').textContent = '0 / 1000';
+                } else if (resp.status === 401) {
+                    msgDiv.textContent = 'Please log in to submit feedback';
+                    msgDiv.className = 'mt-2 text-xs text-amber-500';
+                    msgDiv.classList.remove('hidden');
+                } else {
+                    msgDiv.textContent = data.detail || 'Submission failed';
+                    msgDiv.className = 'mt-2 text-xs text-red-500';
+                    msgDiv.classList.remove('hidden');
+                }
+            } catch (e) {
+                msgDiv.textContent = 'Network error, please try again';
+                msgDiv.className = 'mt-2 text-xs text-red-500';
+                msgDiv.classList.remove('hidden');
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Submit';
+        }
     </script>
 </body>
 </html>

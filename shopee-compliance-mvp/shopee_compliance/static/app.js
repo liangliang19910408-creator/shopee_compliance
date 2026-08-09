@@ -14,6 +14,19 @@ function getCookie(name) {
     return null;
 }
 
+// Phase 4.3: 通用埋点上报（fire-and-forget，失败静默）
+async function trackEvent(eventName, eventData = {}) {
+    try {
+        await fetch('/api/user/event/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event_name: eventName, event_data: eventData }),
+        });
+    } catch (e) {
+        // 静默吞掉，不影响主流程
+    }
+}
+
 function showToast(message, type = 'warning', actions = []) {
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -45,8 +58,14 @@ function showToast(message, type = 'warning', actions = []) {
         actionContainer.className = 'flex gap-2';
         actions.forEach(action => {
             const actionLink = document.createElement('a');
-            actionLink.href = action.url;
-            actionLink.target = action.target || '_self';
+            // 支持 action.url 或 action.onclick
+            if (action.onclick) {
+                actionLink.href = '#';
+                actionLink.onclick = (e) => { e.preventDefault(); action.onclick(); };
+            } else {
+                actionLink.href = action.url || '#';
+                actionLink.target = action.target || '_self';
+            }
             actionLink.className = 'text-amber-300 hover:text-amber-200 font-semibold text-xs underline whitespace-nowrap';
             actionLink.textContent = action.text;
             actionContainer.appendChild(actionLink);
@@ -85,12 +104,14 @@ let trialEnd = localStorage.getItem('trial_end') || null;
 let currentLang = localStorage.getItem('lang') || 'en';
 let selectedCsvFile = null;
 let batchIsPro = false;
+let userIsPro = false;  // 定价模拟器权限控制
+let currentPlatform = 'shopee'; // P1-A: 当前选中的平台 (shopee/lazada)
 
 // ============ Translations ============
 const translations = {
     en: {
-        pageTitle: 'Shopee MY Compliance Checker',
-        pageSubtitle: 'Detect violations instantly. Avoid penalties & delisting.',
+        pageTitle: 'Shopee & Lazada MY Pre-Audit & Profit Intelligence',
+        pageSubtitle: 'Pre-audit compliance, fee breakdown & opportunity scoring. List with confidence.',
         productTitle: 'Product Title',
         productInput: 'Product Title or Link',
         titlePlaceholder: 'e.g. New Wireless Bluetooth Earphone...',
@@ -106,6 +127,10 @@ const translations = {
         catBeauty: 'Beauty & Skincare',
         catFashion: 'Fashion & Apparel',
         catHome: 'Home & Living',
+        catHealth: 'Health & Supplements',
+        catBaby: 'Baby & Toys',
+        catSports: 'Sports & Outdoor',
+        catFood: 'Food & Beverages',
         startScan: 'Start Scan',
         scanNow: 'Scan Now',
         scanning: 'Scanning...',
@@ -151,12 +176,12 @@ const translations = {
 
         downloadCard: 'Download Card',
 
-        footerPolicy: 'Advisory only. Based on publicly available Shopee MY resources. Not affiliated with Shopee/Lazada.',
+        footerPolicy: 'Advisory only. Based on publicly available Shopee & Lazada MY resources. Not affiliated with Shopee/Lazada.',
         footerDisclaimer: 'Results are advisory only.',
         upgradePro: 'Upgrade to Pro →',
 
-        limitBannerText: 'You have used all 10 free scans today. Upgrade to Pro for unlimited scans.',
-        limitBannerBtn: 'Upgrade to Pro – RM29/mo',
+        limitBannerText: 'You have used all 5 free scans today. Upgrade to Pro for unlimited scans.',
+        limitBannerBtn: 'Upgrade to Pro – RM59/mo',
         limitTitle: 'Daily Scan Limit Reached',
         firstTimeBannerText: 'Paste your Shopee or Lazada product link below to start scanning.',
 
@@ -185,7 +210,7 @@ const translations = {
 
         trialExpired: 'Your 7-day free trial has expired.',
         upgradeNow: 'Upgrade now to keep your listings safe.',
-        upgradeBtn: 'Upgrade to Pro (RM29/month)',
+        upgradeBtn: 'Upgrade to Pro (RM59/month)',
 
         login: 'Login',
         logout: 'Logout',
@@ -202,9 +227,13 @@ const translations = {
         falsePositiveWordPlaceholder: 'Word you believe is a false positive',
         falsePositiveReasonPlaceholder: 'Why do you believe this is a false positive?',
 
-        ruleSetLabel: 'Rule Set:',
+        ruleSetLabel: 'Platform:',
         platformShopee: 'Shopee MY',
-        includeLazadaLabel: 'Include Lazada MY (Additional flags)',
+        platformLazada: 'Lazada MY',
+        platformSwitchConfirm: 'Switch Platform?',
+        platformSwitchConfirmMsg: 'Switching platform will reset the title, link and category. Cost and price will be kept. Continue?',
+        lazadaDetectedToast: 'Lazada link detected, switched to Lazada platform',
+        lazadaShippingHint: 'Estimated value, please adjust based on actual logistics',
         hygieneTips: 'Readability Tips',
         hygieneTitleLength: 'Title exceeds 128 characters - may be truncated',
         hygieneWordRepeat: 'Repeated word detected - consider rephrasing',
@@ -212,20 +241,59 @@ const translations = {
 
         'scan.form.cost_label': 'Est. Cost (RM)',
         'scan.form.price_label': 'Est. Price (RM)',
+        'scan.supplier.empty': 'No suppliers saved.',
+        'scan.supplier.go_dashboard': 'Go to Dashboard →',
         'scan.result.gross_profit': 'Est. Gross Profit: RM{{gp}} ({{margin}}%)',
-        'scan.result.margin_note': '💡 Price shown is Shopee listing price, actual may vary.',
+        'scan.result.margin_note': '💡 Price shown is Shopee/Lazada listing price, actual may vary.',
         'scan.result.margin_high': 'High Margin',
         'scan.result.margin_medium': 'Medium Margin',
         'scan.result.margin_low': 'Low Margin',
         'scan.placeholder.margin_empty': 'Enter your estimated cost and price above to see gross profit and margin level after scanning.',
-        'scan.banner.title': '💰 New: Gross Profit Calculator',
-        'scan.banner.body': '🔗 Paste Shopee link → title auto-filled.<br/>✏️ Enter your cost and price.<br/>📊 Instant margin label: 🟢 High / 🟡 Medium / 🔴 Low.',
+        'scan.banner.title': '💰 Profit Intelligence: Fee Breakdown + Opportunity Score',
+        'scan.banner.body': '🔗 Paste Shopee/Lazada link → title auto-filled.<br/>✏️ Enter cost, price & shipping.<br/>📊 Full fee breakdown: commission, transaction, service & platform fees.<br/>🎯 Opportunity score: content compliance + profit health + title quality + violation risk.',
+        'scan.advanced.toggle': 'Advanced Profit Settings',
+        'scan.advanced.lock_title': 'Pro Feature',
+        'scan.advanced.lock_desc': 'Upgrade to adjust shipping, seller type & cashback',
+        'scan.advanced.lock_btn': 'Upgrade to Pro',
+        'scan.form.shipping_fee_label': 'Buyer Shipping Fee (RM)',
+        'scan.form.shipping_cost_label': 'Seller Shipping Cost (RM)',
+        'scan.form.seller_type_label': 'Seller Type',
+        'scan.form.seller_marketplace': 'Marketplace Seller',
+        'scan.form.seller_mall': 'Shopee Mall Seller',
+        'scan.form.cashback_label': 'Participate in Cashback Program',
+        'scan.result.fee_breakdown_title': 'Fee Breakdown',
+        'scan.result.platform_fees_group': 'Platform Fees',
+        'scan.result.commission': 'Commission (incl. SST)',
+        'scan.result.transaction_fee': 'Transaction Fee',
+        'scan.result.service_fee': 'Service Fee',
+        'scan.result.platform_fee': 'Platform Fee',
+        'scan.result.total_fees': 'Total Platform Fees',
+        'scan.result.net_profit': 'Net Profit',
+        'scan.result.profit_margin': 'Profit Margin',
+        'scan.result.break_even': 'Break-even Price',
+        'scan.result.roi': 'ROI',
+        'scan.result.healthy': 'Healthy',
+        'scan.result.warning': 'Warning',
+        'scan.result.danger': 'Danger',
+        'scan.result.opp_score_title': 'Opportunity Score',
+        'scan.result.opp_premium': 'Excellent Opportunity',
+        'scan.result.opp_good': 'Caution Advised',
+        'scan.result.opp_risky': 'Not Recommended',
+        'scan.result.opp_blocked': 'Blocked',
+        'scan.result.opp_compliance': 'Content Compliance',
+        'scan.result.opp_profit': 'Profit Health',
+        'scan.result.opp_competition': 'Title Quality',
+        'scan.result.opp_risk': 'Violation Risk',
+        'scan.result.break_even_hint': 'Minimum price to cover all costs and fees',
+        'scan.result.target_price_title': 'Target Price Suggestion',
+        'scan.result.gate_blocked': 'Blocked',
+        'scan.result.gate_passed': 'Passed',
         'scan.rule_alert.text': '⚠️ Shopee MY updated: stricter monitoring on \'vape\', \'replica\' and similar terms. Review your listings.',
 
-        'scan.limit_banner.guest': '⚠️ Free scans: 3/3 used today. Log in to continue, or sign up for 7-day Pro trial — no credit card needed.',
-        'scan.limit_banner.guest_zh': '⚠️ 免费扫描：今日 3/3 已用完。登录继续使用，或注册领 7 天 Pro 试用（无需信用卡）。',
-        'scan.limit_banner.logged': '⚠️ Free scans: 3/3 used today. Upgrade to Pro for unlimited scans + batch CSV (200 items), or WhatsApp us.',
-        'scan.limit_banner.logged_zh': '⚠️ 免费扫描：今日 3/3 已用完。升级 Pro 享无限扫描 + 批量 CSV（200条），或 WhatsApp 联系。',
+        'scan.limit_banner.guest': '⚠️ Free scans: 5/5 used today. Log in to continue, or sign up for 7-day Pro trial — no credit card needed.',
+        'scan.limit_banner.guest_zh': '⚠️ 免费扫描：今日 5/5 已用完。登录继续使用，或注册领 7 天 Pro 试用（无需信用卡）。',
+        'scan.limit_banner.logged': '⚠️ Free scans: 5/5 used today. Upgrade to Pro for unlimited scans + batch CSV (200 items), or WhatsApp us.',
+        'scan.limit_banner.logged_zh': '⚠️ 免费扫描：今日 5/5 已用完。升级 Pro 享无限扫描 + 批量 CSV（200条），或 WhatsApp 联系。',
         'scan.limit_banner.login_btn': 'Log in',
         'scan.limit_banner.login_btn_zh': '登录',
         'scan.limit_banner.signup_btn': 'Sign up',
@@ -243,6 +311,7 @@ const translations = {
         batchFailed: 'Batch scan failed. Please try again.',
         batchProOnly: 'Batch scan available for Pro users only',
         batchProLockToast: '🔒 Batch scanning is a Pro feature.',
+        advancedLockToast: '🔒 Advanced profit settings (shipping, seller type, cashback) are Pro features. Upgrade to unlock precise fee simulation.',
         batchUpgradeAction: 'Upgrade to Pro',
         batchHelpAction: 'Get help',
         batchUpgradeHint: 'Upgrade to Pro for unlimited batch scans (200 items per file).',
@@ -254,11 +323,15 @@ const translations = {
         trial_modal_input_placeholder: '+60123456789',
         trial_modal_success: 'Trial activated! Check your WhatsApp.',
         trial_error_wa_used: 'This WA number has already been used for trial.',
-        trialActivate: 'Activate'
+        trialActivate: 'Activate',
+        scanCountLabel: "Today's scans",
+        scanCountTextPattern: '{used}/{limit} ({remaining} left)',
+        scanCountUnlimited: 'Unlimited scans',
+        scanCountUsedUp: 'All 5 scans used today'
     },
     zh: {
-        pageTitle: 'Shopee 合规检测',
-        pageSubtitle: '输入商品信息，立即检测违规风险，避免店铺扣分与下架。',
+        pageTitle: 'Shopee & Lazada MY 预审与利润智能平台',
+        pageSubtitle: '合规预审、费用拆解、机会评分，安心上架。',
         productTitle: '商品标题',
         productInput: '商品标题或链接',
         titlePlaceholder: '例如：新款无线蓝牙耳机...',
@@ -274,6 +347,10 @@ const translations = {
         catBeauty: '美妆护肤',
         catFashion: '时尚服饰',
         catHome: '家居生活',
+        catHealth: '健康保健',
+        catBaby: '母婴玩具',
+        catSports: '运动户外',
+        catFood: '食品饮料',
         startScan: '开始检测',
         scanNow: '立即扫描',
         scanning: '检测中...',
@@ -319,14 +396,14 @@ const translations = {
 
         downloadCard: '下载报告卡',
 
-        footerPolicy: '仅供参考。基于 Shopee 马来西亚公开卖家资源。与 Shopee/Lazada 无关联。',
+        footerPolicy: '仅供参考。基于 Shopee & Lazada 马来西亚公开卖家资源。与 Shopee/Lazada 无关联。',
         footerDisclaimer: '检测结果仅供参考。',
         upgradePro: '升级到 Pro →',
 
-        limitBannerText: '今日 10 次免费扫描已用完。升级 Pro 享受无限扫描。',
-        limitBannerBtn: '升级 Pro – RM29/月',
+        limitBannerText: '今日 5 次免费扫描已用完。升级 Pro 享受无限扫描。',
+        limitBannerBtn: '升级 Pro – RM59/月',
         limitTitle: '每日扫描次数已用完',
-        firstTimeBannerText: '将您的 Shopee 商品链接粘贴到下方开始检测。',
+        firstTimeBannerText: '将您的 Shopee 或 Lazada 商品链接粘贴到下方开始检测。',
 
         safeTitle: '暂无风险！',
         safeDesc: '未检测到敏感词。',
@@ -353,7 +430,7 @@ const translations = {
 
         trialExpired: '您的7天免费试用期已到期。',
         upgradeNow: '立即升级以继续保护您的商品列表。',
-        upgradeBtn: '升级到 Pro (RM29/月)',
+        upgradeBtn: '升级到 Pro (RM59/月)',
 
         login: '登录',
         logout: '登出',
@@ -370,9 +447,13 @@ const translations = {
         falsePositiveWordPlaceholder: '您认为是误报的词语',
         falsePositiveReasonPlaceholder: '您为什么认为这是误报？',
 
-        ruleSetLabel: '规则集：',
+        ruleSetLabel: '平台：',
         platformShopee: 'Shopee MY',
-        includeLazadaLabel: '包含 Lazada MY（附加规则）',
+        platformLazada: 'Lazada MY',
+        platformSwitchConfirm: '切换平台？',
+        platformSwitchConfirmMsg: '切换平台将重置标题、链接和类目。成本和售价将保留。是否继续？',
+        lazadaDetectedToast: '检测到 Lazada 链接，已自动切换平台',
+        lazadaShippingHint: '预估值，请根据实际物流单修改',
         hygieneTips: '可读性提示',
         hygieneTitleLength: '标题超过128字符 - 可能被截断',
         hygieneWordRepeat: '检测到重复词 - 建议重新表述',
@@ -380,20 +461,59 @@ const translations = {
 
         'scan.form.cost_label': '预估成本 (RM)',
         'scan.form.price_label': '预估售价 (RM)',
+        'scan.supplier.empty': '暂无供应商预设。',
+        'scan.supplier.go_dashboard': '前往 Dashboard →',
         'scan.result.gross_profit': '预估毛利：RM{{gp}} ({{margin}}%)',
-        'scan.result.margin_note': '💡 售价为 Shopee 展示价，实际以订单为准。',
+        'scan.result.margin_note': '💡 售价为 Shopee/Lazada 展示价，实际以订单为准。',
         'scan.result.margin_high': '高毛利',
         'scan.result.margin_medium': '中毛利',
         'scan.result.margin_low': '低毛利',
         'scan.placeholder.margin_empty': '在上方填入预估成本和售价，扫描后即可查看毛利计算结果和利润率等级。',
-        'scan.banner.title': '💰 新功能：毛利速算',
-        'scan.banner.body': '🔗 贴 Shopee 链接 → 标题自动填入。<br/>✏️ 输入你的成本和售价。<br/>📊 即时利润率标签：🟢高 / 🟡中 / 🔴低。',
+        'scan.banner.title': '💰 利润智能：费用拆解 + 机会评分',
+        'scan.banner.body': '🔗 贴 Shopee/Lazada 链接 → 标题自动填入。<br/>✏️ 输入成本、售价和运费。<br/>📊 完整费用拆解：佣金、交易费、服务费、平台费。<br/>🎯 机会评分：内容合规 + 利润健康度 + 标题质量 + 违规风险。',
+        'scan.advanced.toggle': '高级利润设置',
+        'scan.advanced.lock_title': 'Pro 功能',
+        'scan.advanced.lock_desc': '升级可调整运费、卖家类型与返现设置',
+        'scan.advanced.lock_btn': '升级 Pro',
+        'scan.form.shipping_fee_label': '买家运费 (RM)',
+        'scan.form.shipping_cost_label': '卖家发货成本 (RM)',
+        'scan.form.seller_type_label': '卖家类型',
+        'scan.form.seller_marketplace': '普通卖家 (Marketplace)',
+        'scan.form.seller_mall': '商城卖家 (Shopee Mall)',
+        'scan.form.cashback_label': '参与返现计划',
+        'scan.result.fee_breakdown_title': '费用拆解',
+        'scan.result.platform_fees_group': '平台扣费',
+        'scan.result.commission': '佣金（含SST）',
+        'scan.result.transaction_fee': '交易手续费',
+        'scan.result.service_fee': '服务费',
+        'scan.result.platform_fee': '平台费',
+        'scan.result.total_fees': '平台总费用',
+        'scan.result.net_profit': '净利润',
+        'scan.result.profit_margin': '利润率',
+        'scan.result.break_even': '盈亏平衡售价',
+        'scan.result.roi': '投资回报率',
+        'scan.result.healthy': '健康',
+        'scan.result.warning': '警告',
+        'scan.result.danger': '危险',
+        'scan.result.opp_score_title': '机会评分',
+        'scan.result.opp_premium': '优秀机会',
+        'scan.result.opp_good': '谨慎评估',
+        'scan.result.opp_risky': '不建议',
+        'scan.result.opp_blocked': '已拦截',
+        'scan.result.opp_compliance': '内容合规',
+        'scan.result.opp_profit': '利润健康度',
+        'scan.result.opp_competition': '标题质量',
+        'scan.result.opp_risk': '违规风险',
+        'scan.result.break_even_hint': '覆盖所有成本和费用的最低售价',
+        'scan.result.target_price_title': '目标利润率反推售价',
+        'scan.result.gate_blocked': '已拦截',
+        'scan.result.gate_passed': '已通过',
         'scan.rule_alert.text': '⚠️ Shopee MY 规则更新：加强对 \'vape\'、\'replica\' 等词的监控，建议检查标题。',
 
-        'scan.limit_banner.guest': '⚠️ 免费扫描：今日 3/3 已用完。登录继续使用，或注册领 7 天 Pro 试用（无需信用卡）。',
-        'scan.limit_banner.guest_zh': '⚠️ 免费扫描：今日 3/3 已用完。登录继续使用，或注册领 7 天 Pro 试用（无需信用卡）。',
-        'scan.limit_banner.logged': '⚠️ 免费扫描：今日 3/3 已用完。升级 Pro 享无限扫描 + 批量 CSV（200条），或 WhatsApp 联系。',
-        'scan.limit_banner.logged_zh': '⚠️ 免费扫描：今日 3/3 已用完。升级 Pro 享无限扫描 + 批量 CSV（200条），或 WhatsApp 联系。',
+        'scan.limit_banner.guest': '⚠️ 免费扫描：今日 5/5 已用完。登录继续使用，或注册领 7 天 Pro 试用（无需信用卡）。',
+        'scan.limit_banner.guest_zh': '⚠️ 免费扫描：今日 5/5 已用完。登录继续使用，或注册领 7 天 Pro 试用（无需信用卡）。',
+        'scan.limit_banner.logged': '⚠️ 免费扫描：今日 5/5 已用完。升级 Pro 享无限扫描 + 批量 CSV（200条），或 WhatsApp 联系。',
+        'scan.limit_banner.logged_zh': '⚠️ 免费扫描：今日 5/5 已用完。升级 Pro 享无限扫描 + 批量 CSV（200条），或 WhatsApp 联系。',
         'scan.limit_banner.login_btn': '登录',
         'scan.limit_banner.login_btn_zh': '登录',
         'scan.limit_banner.signup_btn': '注册',
@@ -411,6 +531,7 @@ const translations = {
         batchFailed: '批量扫描失败，请重试。',
         batchProOnly: '批量扫描仅限 Pro 用户使用',
         batchProLockToast: '🔒 批量扫描为 Pro 专属功能。',
+        advancedLockToast: '🔒 高级利润设置（运费、卖家类型、返现）为 Pro 功能。升级解锁精准费用模拟。',
         batchUpgradeAction: '升级 Pro',
         batchHelpAction: '获取帮助',
         batchUpgradeHint: '升级 Pro 享无限批量扫描（每次最多200条）。',
@@ -422,7 +543,11 @@ const translations = {
         trial_modal_input_placeholder: '+60123456789',
         trial_modal_success: '试用已激活，请查看 WhatsApp',
         trial_error_wa_used: '此 WA 号已激活过试用',
-        trialActivate: '激活'
+        trialActivate: '激活',
+        scanCountLabel: '今日扫描次数',
+        scanCountTextPattern: '{used}/{limit}（剩余 {remaining} 次）',
+        scanCountUnlimited: '无限次扫描',
+        scanCountUsedUp: '今日 5 次扫描已用完'
     }
 };
 
@@ -431,6 +556,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await checkLoginStatus();
     await checkScanHistory();
     await checkBatchPermission();
+    await updateScanCountDisplay();
 
     showMarginIntroBanner();
     checkRulesCard();
@@ -452,6 +578,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     const scanForm = document.getElementById('scanForm');
     if (scanForm) {
         scanForm.addEventListener('submit', function(e) { e.preventDefault(); handleScan(e); });
+    }
+
+    // P1-A: Platform selector event listeners
+    const platformShopeeBtn = document.getElementById('platformShopeeBtn');
+    const platformLazadaBtn = document.getElementById('platformLazadaBtn');
+    if (platformShopeeBtn) {
+        platformShopeeBtn.addEventListener('click', () => switchPlatform('shopee'));
+    }
+    if (platformLazadaBtn) {
+        platformLazadaBtn.addEventListener('click', () => switchPlatform('lazada'));
+    }
+
+    // P1-A: Auto-detect platform on title input paste/type
+    const titleInputEl = document.getElementById('title');
+    if (titleInputEl) {
+        titleInputEl.addEventListener('paste', () => {
+            setTimeout(() => autoDetectPlatform(titleInputEl.value), 0);
+        });
+        titleInputEl.addEventListener('input', () => {
+            const val = titleInputEl.value.trim();
+            if (val.startsWith('http')) {
+                autoDetectPlatform(val);
+            }
+        });
     }
     const trialForm = document.getElementById('trialForm');
     if (trialForm) {
@@ -670,7 +820,7 @@ function showProLockToast() {
         t.batchProLockToast,
         'warning',
         [
-            { text: t.batchUpgradeAction, url: '/pricing/pay#pro' },
+            { text: t.batchUpgradeAction, onclick: () => handleUpgradeFromIndex('batch_lock_toast') },
             { text: t.batchHelpAction, url: WHATSAPP_LINK, target: '_blank' }
         ]
     );
@@ -692,6 +842,37 @@ function handleBatchScanClick() {
     runBatchScan();
 }
 
+// ============ Scan Count Display ============
+async function updateScanCountDisplay() {
+    try {
+        const res = await fetch('/api/user/info');
+        const data = await res.json();
+        const indicator = document.getElementById('scanCountIndicator');
+        const textEl = document.getElementById('scanCountText');
+        if (!indicator || !textEl) return;
+
+        const t = translations[currentLang];
+
+        if (data.is_pro) {
+            // Pro 用户：显示无限次
+            textEl.textContent = t.scanCountUnlimited;
+            indicator.classList.remove('hidden');
+        } else if (data.scan_limit != null) {
+            // Free/Guest 用户：显示剩余次数
+            const used = data.scan_count_today || 0;
+            const limit = data.scan_limit;
+            const remaining = Math.max(0, limit - used);
+            textEl.textContent = t.scanCountTextPattern
+                .replace('{used}', used)
+                .replace('{limit}', limit)
+                .replace('{remaining}', remaining);
+            indicator.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error('Failed to fetch scan count:', err);
+    }
+}
+
 // ============ Check Login Status ============
 async function checkLoginStatus() {
     try {
@@ -701,16 +882,26 @@ async function checkLoginStatus() {
         if (data.logged_in) {
             trialToken = getCookie('session_token');
             trialEmail = data.email;
+            userIsPro = isProUser(data);
 
             updateAuthButton(true, data.email);
             showPaidBar(data.email, data.status, data.plan_type, data.paid_until, data.trial_end, data.trial_remaining_days);
+            updateAdvancedSettingsLock();
+            // IntelliAudit 2.0 Pro: 加载当前平台偏好默认值
+            loadPlatformPreferences(currentPlatform);
+            attachPrefEditListeners();
+            updateSupplierPickerVisibility();
         } else {
             trialToken = null;
             trialEmail = null;
             trialEnd = null;
+            userIsPro = false;
             const bar = document.getElementById('trialBar');
             if (bar) bar.classList.add('hidden');
             updateAuthButton(false);
+            updateAdvancedSettingsLock();
+            hidePrefStatusRow();
+            updateSupplierPickerVisibility();
         }
     } catch (err) {
         console.error('Failed to check login status:', err);
@@ -855,6 +1046,7 @@ function toggleLanguage() {
     currentLang = currentLang === 'en' ? 'zh' : 'en';
     localStorage.setItem('lang', currentLang);
     applyLanguage(currentLang);
+    updateScanCountDisplay();
 }
 
 function applyLanguage(lang) {
@@ -945,6 +1137,14 @@ function applyLanguage(lang) {
     updateText('[data-i18n="firstTimeBannerText"]', t.firstTimeBannerText);
     updateText('[data-i18n="scan.banner.title"]', t['scan.banner.title']);
     updateText('[data-i18n="scan.banner.body"]', t['scan.banner.body'], 'html');
+    updateText('[data-i18n="scan.advanced.toggle"]', t['scan.advanced.toggle']);
+    updateText('[data-i18n="scan.advanced.lock_title"]', t['scan.advanced.lock_title']);
+    updateText('[data-i18n="scan.advanced.lock_desc"]', t['scan.advanced.lock_desc']);
+    updateText('[data-i18n="scan.advanced.lock_btn"]', t['scan.advanced.lock_btn']);
+    updateText('[data-i18n="scan.form.shipping_fee_label"]', t['scan.form.shipping_fee_label']);
+    updateText('[data-i18n="scan.form.shipping_cost_label"]', t['scan.form.shipping_cost_label']);
+    updateText('[data-i18n="scan.form.seller_type_label"]', t['scan.form.seller_type_label']);
+    updateText('[data-i18n="scan.form.cashback_label"]', t['scan.form.cashback_label']);
     updateText('[data-i18n="scan.rule_alert.text"]', t['scan.rule_alert.text']);
     updateText('[data-i18n="noReport"]', t.noReport);
     updateText('[data-i18n="goHome"]', t.goHome);
@@ -983,10 +1183,20 @@ function applyLanguage(lang) {
         });
     }
 
+    const sellerSelect = document.getElementById('seller_type');
+    if (sellerSelect) {
+        sellerSelect.querySelectorAll('option').forEach(opt => {
+            const key = opt.getAttribute('data-i18n');
+            if (key && t[key]) {
+                opt.textContent = t[key];
+            }
+        });
+    }
+
     
     updateText('[data-i18n="ruleSetLabel"]', t.ruleSetLabel);
     updateText('[data-i18n="platformShopee"]', t.platformShopee);
-    updateText('[data-i18n="includeLazadaLabel"]', t.includeLazadaLabel);
+    updateText('[data-i18n="platformLazada"]', t.platformLazada);
 
     const titleInput = document.getElementById('title');
     const descInput = document.getElementById('description');
@@ -1079,75 +1289,340 @@ function dismissRulesCard() {
     localStorage.setItem('hide_rule_alert', 'true');
 }
 
+// ============ Advanced Settings Toggle ============
+// IntelliAudit 2.0 Pro: Free 用户可展开 Advanced，仅 seller_type 禁用
+// shipping_fee / shipping_cost / cashback 对 Free 可编辑
+function updateAdvancedSettingsLock() {
+    const toggle = document.getElementById('advancedToggle');
+    const settings = document.getElementById('advancedSettings');
+    const overlay = document.getElementById('advancedLockOverlay');
+    if (!toggle || !settings) return;
+
+    // 永久隐藏旧的整面板锁定遮罩（Free 现在可展开）
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+
+    const proBadge = toggle.querySelector('.pro-badge');
+    const sellerTypeBadge = settings.querySelector('.seller-type-pro-badge');
+    if (!userIsPro) {
+        // Free 用户：保留 PRO 标识（提示 seller_type 是 Pro 专属）
+        if (!proBadge) {
+            const badge = document.createElement('span');
+            badge.className = 'pro-badge text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium ml-1';
+            badge.textContent = 'PRO';
+            toggle.querySelector('button').appendChild(badge);
+        }
+        if (sellerTypeBadge) sellerTypeBadge.classList.remove('hidden');
+        // 仅禁用 seller_type（+ opacity-40），其余输入可编辑
+        const sellerType = settings.querySelector('#seller_type');
+        if (sellerType) {
+            sellerType.disabled = true;
+            sellerType.classList.add('opacity-40', 'cursor-not-allowed');
+        }
+        // 确保 shipping_fee / shipping_cost / cashback 可编辑
+        ['shipping_fee', 'shipping_cost', 'cashback_enabled'].forEach(id => {
+            const el = settings.querySelector('#' + id);
+            if (el) {
+                el.disabled = false;
+                el.classList.remove('opacity-40', 'cursor-not-allowed');
+            }
+        });
+    } else {
+        // Pro 用户：移除 Pro 标识 + 全部启用
+        if (proBadge) proBadge.remove();
+        if (sellerTypeBadge) sellerTypeBadge.classList.add('hidden');
+        settings.querySelectorAll('input, select').forEach(el => {
+            el.disabled = false;
+            el.classList.remove('opacity-40', 'cursor-not-allowed');
+        });
+    }
+}
+
+function toggleAdvanced() {
+    const settings = document.getElementById('advancedSettings');
+    const chevron = document.getElementById('advancedChevron');
+
+    // IntelliAudit 2.0 Pro: Free 用户可展开 Advanced（不再拦截）
+    // 仅 seller_type 仍禁用（在 updateAdvancedSettingsLock 中处理）
+
+    if (settings.classList.contains('hidden')) {
+        settings.classList.remove('hidden');
+        chevron.style.transform = 'rotate(90deg)';
+    } else {
+        settings.classList.add('hidden');
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+
+// ============ IntelliAudit 2.0 Pro: 平台偏好自动回填 ============
+// 按平台隔离记忆：shipping_fee / shipping_cost / default_category / cashback / seller_type
+// 状态标签：📌 使用默认 / ✏ 已修改 / 💾 已保存
+let platformPrefsCache = {};  // {shopee: {...}, lazada: {...}}
+let prefsLoadedForPlatform = { shopee: false, lazada: false };
+
+async function loadPlatformPreferences(platform) {
+    // 仅已登录 Pro 用户加载偏好默认值
+    if (!userIsPro || !trialEmail) {
+        hidePrefStatusRow();
+        return;
+    }
+    try {
+        const res = await fetch(`/api/user/preferences/platform?platform=${platform}`);
+        if (!res.ok) { hidePrefStatusRow(); return; }
+        const data = await res.json();
+        if (!data.success) { hidePrefStatusRow(); return; }
+        const prefs = data.preferences || {};
+        platformPrefsCache[platform] = { ...prefs };
+        prefsLoadedForPlatform[platform] = true;
+
+        // 回填表单（不覆盖用户正在编辑的值，仅在为空或首次加载时填入）
+        const shippingFee = document.getElementById('shipping_fee');
+        const shippingCost = document.getElementById('shipping_cost');
+        const categorySelect = document.getElementById('productCategory');
+        const cashbackCheckbox = document.getElementById('cashback_enabled');
+        const sellerType = document.getElementById('seller_type');
+
+        if (shippingFee && prefs.shipping_fee != null) shippingFee.value = prefs.shipping_fee || '';
+        if (shippingCost && prefs.shipping_cost != null) shippingCost.value = prefs.shipping_cost || '';
+        if (categorySelect && prefs.default_category) categorySelect.value = prefs.default_category;
+
+        // Cashback：Lazada 强制 false + 隐藏（由 applyPlatformUI 处理），Shopee 按偏好
+        if (platform === 'shopee' && cashbackCheckbox && prefs.cashback != null) {
+            cashbackCheckbox.checked = !!prefs.cashback;
+        }
+        // seller_type：Pro 用户按偏好；Free 用户保持禁用默认 marketplace
+        if (userIsPro && sellerType && prefs.seller_type) {
+            sellerType.value = prefs.seller_type;
+        }
+
+        updatePrefStatusTag('default');
+    } catch (e) {
+        console.warn('[Preferences] load failed:', e);
+        hidePrefStatusRow();
+    }
+}
+
+function updatePrefStatusTag(state) {
+    const row = document.getElementById('prefStatusRow');
+    const tag = document.getElementById('prefStatusTag');
+    if (!row || !tag) return;
+    if (!userIsPro) { hidePrefStatusRow(); return; }
+    row.classList.remove('hidden');
+    row.style.display = 'flex';
+    const t = (translations[currentLang] || {});
+    if (state === 'default') {
+        tag.innerHTML = '📌 <span>' + (t.prefStatusDefault || 'Using saved default') + '</span>';
+        tag.className = 'text-[10px] text-slate-400 flex items-center gap-1';
+    } else if (state === 'edited') {
+        tag.innerHTML = '✏ <span>' + (t.prefStatusEdited || 'Modified — click "Save as Default" to update') + '</span>';
+        tag.className = 'text-[10px] text-amber-400 flex items-center gap-1';
+    } else if (state === 'saved') {
+        tag.innerHTML = '💾 <span>' + (t.prefStatusSaved || 'Saved as default') + '</span>';
+        tag.className = 'text-[10px] text-green-400 flex items-center gap-1';
+        setTimeout(() => updatePrefStatusTag('default'), 2000);
+    }
+}
+
+function hidePrefStatusRow() {
+    const row = document.getElementById('prefStatusRow');
+    if (row) row.style.display = 'none';
+}
+
+// 给高级设置字段绑定 change/input 监听，触发 ✏ 状态
+let prefListenersAttached = false;
+function attachPrefEditListeners() {
+    if (prefListenersAttached) return;
+    const ids = ['shipping_fee', 'shipping_cost', 'productCategory', 'cashback_enabled', 'seller_type'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', checkPrefEdited);
+            el.addEventListener('change', checkPrefEdited);
+        }
+    });
+    prefListenersAttached = true;
+}
+
+// ============ Phase 2.3: 扫描页供应商选择器（🏭 图标）============
+// Pro 用户：点击 🏭 弹出供应商列表，选择后仅填入成本（不覆盖类目）
+let scanSuppliersCache = null;  // null=未加载, []=已加载但空
+
+function updateSupplierPickerVisibility() {
+    const btn = document.getElementById('supplierPickerBtn');
+    if (!btn) return;
+    // 仅 Pro 用户显示 🏭 按钮
+    btn.classList.toggle('hidden', !userIsPro);
+}
+
+async function toggleSupplierPicker(event) {
+    if (event) event.stopPropagation();
+    const dropdown = document.getElementById('supplierDropdown');
+    if (!dropdown) return;
+    if (dropdown.classList.contains('hidden')) {
+        // 打开前先加载
+        await loadScanSuppliers();
+        dropdown.classList.remove('hidden');
+    } else {
+        dropdown.classList.add('hidden');
+    }
+}
+
+async function loadScanSuppliers() {
+    if (!userIsPro) return;
+    const loadingEl = document.getElementById('supplierDropdownLoading');
+    const listEl = document.getElementById('supplierDropdownList');
+    const emptyEl = document.getElementById('supplierDropdownEmpty');
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    if (listEl) listEl.innerHTML = '';
+    if (emptyEl) emptyEl.classList.add('hidden');
+    try {
+        const res = await fetch('/api/user/preferences/suppliers');
+        if (!res.ok) { if (loadingEl) loadingEl.classList.add('hidden'); return; }
+        const data = await res.json();
+        scanSuppliersCache = data.suppliers || [];
+        if (loadingEl) loadingEl.classList.add('hidden');
+        if (scanSuppliersCache.length === 0) {
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            return;
+        }
+        const isZh = currentLang === 'zh';
+        if (listEl) {
+            listEl.innerHTML = scanSuppliersCache.map((s, i) => `
+                <button type="button" onclick="selectSupplier(${i})" class="w-full text-left px-3 py-2 hover:bg-white/5 transition border-b border-white/5 last:border-0">
+                    <div class="text-white text-xs font-medium truncate">${escapeHtmlScan(s.name)}</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                        <span class="px-1 py-0.5 rounded bg-slate-700/50 text-slate-400">${escapeHtmlScan(s.category || 'general')}</span>
+                        <span class="text-emerald-400">RM ${(s.cost || 0).toFixed(2)}</span>
+                    </div>
+                </button>
+            `).join('');
+        }
+    } catch (e) {
+        console.error('loadScanSuppliers error:', e);
+        if (loadingEl) loadingEl.classList.add('hidden');
+    }
+}
+
+function selectSupplier(idx) {
+    const s = scanSuppliersCache && scanSuppliersCache[idx];
+    if (!s) return;
+    // 仅填入成本，不覆盖类目（Phase 2.3 要求）
+    const costInput = document.getElementById('cost_rm');
+    if (costInput) {
+        costInput.value = (s.cost || 0).toFixed(2);
+        // 触发 input 事件以更新偏好编辑状态
+        costInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    // 关闭下拉
+    const dropdown = document.getElementById('supplierDropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+    // Phase 4.3: 埋点 supplier_selected
+    trackEvent('supplier_selected', {
+        supplier_name: s.name,
+        category: s.category || 'general',
+        cost: s.cost || 0,
+        platform: currentPlatform,
+    });
+}
+
+function escapeHtmlScan(str) {
+    if (str == null) return '';
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+// 点击外部关闭供应商下拉
+document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('supplierDropdown');
+    const btn = document.getElementById('supplierPickerBtn');
+    if (dropdown && !dropdown.classList.contains('hidden')) {
+        if (!dropdown.contains(e.target) && e.target !== btn) {
+            dropdown.classList.add('hidden');
+        }
+    }
+});
+
+// 检测高级设置字段是否被用户修改（与缓存对比）
+function checkPrefEdited() {
+    if (!userIsPro) return;
+    const platform = currentPlatform;
+    const prefs = platformPrefsCache[platform];
+    if (!prefs) return;
+    const shippingFee = document.getElementById('shipping_fee')?.value;
+    const shippingCost = document.getElementById('shipping_cost')?.value;
+    const category = document.getElementById('productCategory')?.value;
+    const cashback = document.getElementById('cashback_enabled')?.checked;
+    const sellerType = document.getElementById('seller_type')?.value;
+
+    const numEq = (a, b) => (parseFloat(a) || 0) === (parseFloat(b) || 0);
+    const edited =
+        !numEq(shippingFee, prefs.shipping_fee) ||
+        !numEq(shippingCost, prefs.shipping_cost) ||
+        (category !== (prefs.default_category || 'general')) ||
+        (platform === 'shopee' && cashback !== !!prefs.cashback) ||
+        (sellerType !== (prefs.seller_type || 'marketplace'));
+    updatePrefStatusTag(edited ? 'edited' : 'default');
+}
+
+async function saveCurrentAsDefault() {
+    if (!userIsPro) {
+        showToast((translations[currentLang]?.advancedLockToast) || 'Pro only', 'warning');
+        return;
+    }
+    const platform = currentPlatform;
+    const payload = {
+        platforms: {
+            [platform]: {
+                shipping_fee: parseFloat(document.getElementById('shipping_fee')?.value) || 0,
+                shipping_cost: parseFloat(document.getElementById('shipping_cost')?.value) || 0,
+                default_category: document.getElementById('productCategory')?.value || 'general',
+                cashback: platform === 'shopee' ? !!document.getElementById('cashback_enabled')?.checked : false,
+                seller_type: document.getElementById('seller_type')?.value || 'marketplace',
+            }
+        }
+    };
+    try {
+        const res = await fetch('/api/user/preferences', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast(err.detail || 'Save failed', 'error');
+            return;
+        }
+        const data = await res.json();
+        platformPrefsCache[platform] = data.preferences?.platforms?.[platform] || platformPrefsCache[platform];
+        updatePrefStatusTag('saved');
+    } catch (e) {
+        console.error('[Preferences] save failed:', e);
+        showToast('Save failed', 'error');
+    }
+}
+
 // ============ Modal ============
+// V1.0: WA 号为注册必填项，无单独激活 Trial 流程。
+// 所有弹窗入口统一跳转到 /login#register（注册页面）完成注册即自动激活 14 天 Trial。
 function openModal() {
-    document.getElementById('trialModal').classList.remove('hidden');
-    document.getElementById('trialModal').classList.add('flex');
-    document.getElementById('modalEmail').focus();
+    window.location.href = '/login#register';
 }
 
 function closeModal() {
-    document.getElementById('trialModal').classList.add('hidden');
-    document.getElementById('trialModal').classList.remove('flex');
-    document.getElementById('modalEmail').value = '';
+    // 已无弹窗。预留函数以兼容现有调用点。
 }
 
 // ============ Bind WA Modal ============
 function openBindWaModal() {
-    document.getElementById('bindWaModal').classList.remove('hidden');
-    document.getElementById('bindWaModal').classList.add('flex');
-    document.getElementById('waNumberInput').focus();
-    document.getElementById('bindWaError').classList.add('hidden');
+    window.location.href = '/login#register';
 }
 
 function closeBindWaModal() {
-    document.getElementById('bindWaModal').classList.add('hidden');
-    document.getElementById('bindWaModal').classList.remove('flex');
-    document.getElementById('waNumberInput').value = '';
-    document.getElementById('bindWaError').classList.add('hidden');
+    // 已无弹窗。预留函数以兼容现有调用点。
 }
 
 async function handleBindWa() {
-    const waNumber = document.getElementById('waNumberInput').value.trim();
-    const errorDiv = document.getElementById('bindWaError');
-    const t = translations[currentLang];
-
-    if (!waNumber) {
-        errorDiv.textContent = 'Please enter your WhatsApp number';
-        errorDiv.classList.remove('hidden');
-        return;
-    }
-
-    try {
-        const res = await fetch('/api/bind-wa', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ wa_number: waNumber }),
-            credentials: 'include'
-        });
-
-        const data = await res.json();
-
-        if (res.ok && data.success) {
-            closeBindWaModal();
-            showToast(t.trial_modal_success || 'Trial activated! Check your WhatsApp.', 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-        } else {
-            let errorMsg = data.detail || 'Failed to activate trial';
-            if (errorMsg.includes('already been used')) {
-                errorMsg = t.trial_error_wa_used || 'This WA number has already been used for trial.';
-            }
-            errorDiv.textContent = errorMsg;
-            errorDiv.classList.remove('hidden');
-        }
-    } catch (error) {
-        errorDiv.textContent = 'Network error. Please try again.';
-        errorDiv.classList.remove('hidden');
-    }
+    window.location.href = '/login#register';
 }
 
 // ============ Scan ============
@@ -1175,6 +1650,135 @@ function isLazadaUrl(text) {
     }
 }
 
+// ============ P1-A: Platform Switching Logic ============
+
+// P2: Log platform-related events for analytics
+async function logPlatformEvent(eventName, eventData = {}) {
+    try {
+        await fetch('/api/upgrade-clicked', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event_name: eventName, ...eventData })
+        });
+    } catch (e) {}
+}
+
+function showSimpleToast(message, duration = 3000) {
+    const existing = document.getElementById('platformToast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'platformToast';
+    toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-slate-800 border border-orange-500/50 text-sm text-white shadow-lg transition-all duration-300';
+    toast.style.opacity = '0';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+    });
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+function isFormNonEmpty() {
+    const title = document.getElementById('title')?.value?.trim();
+    const cost = document.getElementById('cost_rm')?.value?.trim();
+    const price = document.getElementById('price_rm')?.value?.trim();
+    return (title && title.length > 0) || (cost && cost.length > 0) || (price && price.length > 0);
+}
+
+function applyPlatformUI(platform) {
+    const shopeeBtn = document.getElementById('platformShopeeBtn');
+    const lazadaBtn = document.getElementById('platformLazadaBtn');
+    const cashbackWrapper = document.getElementById('cashbackWrapper');
+    const cashbackCheckbox = document.getElementById('cashback_enabled');
+    const shippingFeeInput = document.getElementById('shipping_fee');
+
+    if (shopeeBtn && lazadaBtn) {
+        if (platform === 'lazada') {
+            shopeeBtn.className = 'platform-btn px-4 py-1.5 text-xs font-medium transition-colors bg-slate-800 text-slate-400 hover:text-white';
+            lazadaBtn.className = 'platform-btn px-4 py-1.5 text-xs font-medium transition-colors bg-orange-600 text-white';
+        } else {
+            shopeeBtn.className = 'platform-btn px-4 py-1.5 text-xs font-medium transition-colors bg-orange-600 text-white';
+            lazadaBtn.className = 'platform-btn px-4 py-1.5 text-xs font-medium transition-colors bg-slate-800 text-slate-400 hover:text-white';
+        }
+    }
+
+    // Lazada: hide cashback, clear value
+    if (cashbackWrapper) {
+        if (platform === 'lazada') {
+            cashbackWrapper.style.display = 'none';
+            if (cashbackCheckbox) cashbackCheckbox.checked = false;
+        } else {
+            cashbackWrapper.style.display = '';
+            if (cashbackCheckbox) cashbackCheckbox.checked = true;
+        }
+    }
+
+    // Lazada: pre-fill shipping fee with RM 4.50 + hint
+    if (shippingFeeInput) {
+        if (platform === 'lazada') {
+            if (!shippingFeeInput.value) {
+                shippingFeeInput.value = '4.50';
+            }
+            shippingFeeInput.placeholder = '4.50';
+        } else {
+            if (shippingFeeInput.value === '4.50') {
+                shippingFeeInput.value = '';
+            }
+            shippingFeeInput.placeholder = '0.00';
+        }
+    }
+}
+
+function switchPlatform(targetPlatform, skipConfirm = false) {
+    if (targetPlatform === currentPlatform) return;
+
+    const t = translations[currentLang];
+
+    // Check if form has data and confirm
+    if (!skipConfirm && isFormNonEmpty()) {
+        const confirmed = confirm(`${t.platformSwitchConfirm}\n\n${t.platformSwitchConfirmMsg}`);
+        if (!confirmed) return;
+    }
+
+    // P2: Log platform_switch event
+    const previousPlatform = currentPlatform;
+    currentPlatform = targetPlatform;
+
+    logPlatformEvent('platform_switch', { from: previousPlatform, to: targetPlatform });
+
+    // Reset platform-specific fields (keep cost and price)
+    const titleInput = document.getElementById('title');
+    const descInput = document.getElementById('description');
+    const categorySelect = document.getElementById('productCategory');
+
+    if (titleInput) titleInput.value = '';
+    if (descInput) descInput.value = '';
+    if (categorySelect) categorySelect.selectedIndex = 0;
+
+    applyPlatformUI(currentPlatform);
+    // IntelliAudit 2.0 Pro: 切换平台后加载该平台偏好默认值
+    loadPlatformPreferences(currentPlatform);
+}
+
+// Auto-detect Lazada URL on paste and switch platform
+function autoDetectPlatform(text) {
+    if (isLazadaUrl(text) && currentPlatform !== 'lazada') {
+        const t = translations[currentLang];
+        currentPlatform = 'lazada';
+        applyPlatformUI('lazada');
+        showSimpleToast(t.lazadaDetectedToast);
+    } else if (isShopeeUrl(text) && currentPlatform !== 'shopee') {
+        currentPlatform = 'shopee';
+        applyPlatformUI('shopee');
+    }
+}
+
 async function handleScan(e) {
     e.preventDefault();
 
@@ -1184,13 +1788,27 @@ async function handleScan(e) {
     let shop_id = null;
     let item_id = null;
 
+    // P1-A: Auto-detect platform from URL before scanning
+    if (title.startsWith('http')) {
+        autoDetectPlatform(title);
+    }
+
     const productCategory = document.getElementById('productCategory').value || 'general';
-    const includeLazada = document.getElementById('includeLazada').checked;
     
     const costInput = document.getElementById('cost_rm');
     const priceInput = document.getElementById('price_rm');
     let cost_rm = costInput && costInput.value ? parseFloat(costInput.value) : null;
     let price_rm = priceInput && priceInput.value ? parseFloat(priceInput.value) : null;
+
+    // Phase 1: Advanced profit settings
+    const shippingFeeInput = document.getElementById('shipping_fee');
+    const shippingCostInput = document.getElementById('shipping_cost');
+    const sellerTypeSelect = document.getElementById('seller_type');
+    const cashbackCheckbox = document.getElementById('cashback_enabled');
+    let shipping_fee = shippingFeeInput && shippingFeeInput.value ? parseFloat(shippingFeeInput.value) : null;
+    let shipping_cost = shippingCostInput && shippingCostInput.value ? parseFloat(shippingCostInput.value) : null;
+    let seller_type = sellerTypeSelect ? sellerTypeSelect.value : 'marketplace';
+    let cashback_enabled = cashbackCheckbox ? cashbackCheckbox.checked : true;
 
     if (!title) {
         alert(currentLang === 'zh' ? '请输入商品标题或链接' : 'Please enter product title or URL');
@@ -1298,9 +1916,13 @@ async function handleScan(e) {
                 title, 
                 description, 
                 category: productCategory, 
-                include_lazada: includeLazada,
+                platform: currentPlatform,
                 cost_rm,
                 price_rm,
+                shipping_fee,
+                shipping_cost,
+                seller_type,
+                cashback_enabled,
                 source_type,
                 shop_id,
                 item_id
@@ -1320,6 +1942,16 @@ async function handleScan(e) {
             showLoading(false);
             if (data.needs_payment || data.error === 'DAILY_LIMIT') {
                 showLimitBanner();
+                showToast(
+                    currentLang === 'zh' 
+                        ? `今日免费扫描次数已用完（${data.scan_count_today || 5}/5），请升级或明日再来` 
+                        : `Free scans used today (${data.scan_count_today || 5}/5). Upgrade or return tomorrow.`,
+                    'warning',
+                    [
+                        { text: currentLang === 'zh' ? '登录/注册' : 'Login/Sign up', url: '/login#register' },
+                        { text: currentLang === 'zh' ? '升级 Pro' : 'Upgrade to Pro', onclick: () => handleUpgradeFromIndex('scan_limit_toast') }
+                    ]
+                );
                 return;
             }
             if (data.error === 'TRIAL_EXPIRED' || data.error === 'TRIAL_NOT_FOUND') {
@@ -1332,20 +1964,42 @@ async function handleScan(e) {
             return;
         }
 
-        data.title = title;
-        data.description = description;
-        data.product_category = productCategory;
-        data.category = productCategory;
-        data.lang = currentLang;
-        data.cost_rm = cost_rm;
-        data.price_rm = price_rm;
-        data.scanned_at = new Date().toLocaleString();
-        sessionStorage.setItem('complianceReport', JSON.stringify(data));
+        try {
+            data.title = title;
+            data.description = description;
+            data.product_category = productCategory;
+            data.category = productCategory;
+            data.lang = currentLang;
+            data.cost_rm = cost_rm;
+            data.price_rm = price_rm;
+            data.shipping_fee = shipping_fee;
+            data.shipping_cost = shipping_cost;
+            data.seller_type = seller_type;
+            data.cashback_enabled = cashback_enabled;
+            data.scanned_at = new Date().toLocaleString();
+            console.log('[DEBUG] Preparing to store data to sessionStorage, data keys:', Object.keys(data));
+            sessionStorage.setItem('complianceReport', JSON.stringify(data));
+            console.log('[DEBUG] Data stored successfully, about to redirect to /result');
+        } catch (storeErr) {
+            console.error('[DEBUG] Failed to store data:', storeErr);
+            showLoading(false);
+            alert('Scan result processing error: ' + storeErr.message);
+            return;
+        }
+
+        // P2: Log lazada_scan event when scanning in Lazada mode
+        if (currentPlatform === 'lazada') {
+            logPlatformEvent('lazada_scan', { risk_level: data.risk_level, score: data.score });
+        }
         
         document.getElementById('title').value = '';
         document.getElementById('description').value = '';
         document.getElementById('cost_rm').value = '';
         document.getElementById('price_rm').value = '';
+        const sf = document.getElementById('shipping_fee');
+        const sc = document.getElementById('shipping_cost');
+        if (sf) sf.value = '';
+        if (sc) sc.value = '';
         
         window.location.href = '/result';
 
@@ -1357,41 +2011,10 @@ async function handleScan(e) {
 }
 
 // ============ Trial Start ============
+// V1.0: 无独立 WA 激活弹窗。点击"升级/试用"统一跳转注册页，注册即激活 14 天 Trial。
 async function handleTrialStart(e) {
-    e.preventDefault();
-
-    const email = document.getElementById('modalEmail').value.trim();
-    if (!email) return;
-
-    try {
-        const res = await fetch('/api/trial/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-            localStorage.setItem('trial_token', data.token);
-            localStorage.setItem('trial_email', email);
-            localStorage.setItem('trial_end', data.trial_end);
-            trialToken = data.token;
-            trialEmail = email;
-            trialEnd = data.trial_end;
-
-            closeModal();
-            showTrialBar(email, 7);
-
-            document.getElementById('scanForm').dispatchEvent(new Event('submit'));
-        } else {
-            alert(data.message || (currentLang === 'zh' ? '解锁失败，请重试' : 'Unlock failed. Please try again.'));
-        }
-
-    } catch (err) {
-        alert(currentLang === 'zh' ? '解锁失败，请重试' : 'Unlock failed. Please try again.');
-        console.error(err);
-    }
+    if (e) e.preventDefault();
+    window.location.href = '/login#register';
 }
 
 // ============ Loading ============
@@ -1441,6 +2064,10 @@ function generateSummary(data, t) {
 }
 
 async function handleUpgradeFromIndex(position) {
+    // P2: Log lazada_upgrade_click when upgrading from Lazada mode
+    if (currentPlatform === 'lazada') {
+        logPlatformEvent('lazada_upgrade_click', { position });
+    }
     try {
         await fetch('/api/upgrade-clicked', {
             method: 'POST',
@@ -1448,7 +2075,9 @@ async function handleUpgradeFromIndex(position) {
             body: JSON.stringify({ source_page: 'index', button_position: position })
         });
     } catch (e) {}
-    window.location.href = '/pricing/pay#pro';
+    // 差异化跳转：未登录→注册页，已登录→定价页
+    const isLoggedIn = document.body.dataset.loggedIn === 'true' || document.cookie.includes('session_token');
+    window.location.href = isLoggedIn ? '/pricing/pay' : '/login#register';
 }
 
 function closeResultModal() {
@@ -1491,10 +2120,8 @@ function showPaymentBanner() {
 
 // ============ Limit Banner ============
 function showLimitBanner() {
-    const dismissed = localStorage.getItem('dismissed_limit_banner');
-    if (dismissed === 'true') {
-        return;
-    }
+    // 达到限额时重置关闭状态，确保用户能看到提示
+    localStorage.removeItem('dismissed_limit_banner');
 
     const limitBanner = document.getElementById('limitBanner');
     const limitBannerContent = document.getElementById('limitBannerContent');
@@ -1529,7 +2156,7 @@ function showLimitBanner() {
 
         limitBannerContent.textContent = bannerText;
         limitBannerButtons.innerHTML = `
-            <a href="/pricing/#pro" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-md transition whitespace-nowrap text-center">${upgradeBtn}</a>
+            <a href="#" onclick="handleUpgradeFromIndex('limit_banner_logged'); return false;" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-md transition whitespace-nowrap text-center">${upgradeBtn}</a>
         `;
     }
 

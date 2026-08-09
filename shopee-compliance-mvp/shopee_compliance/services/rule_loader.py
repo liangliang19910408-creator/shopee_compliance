@@ -39,6 +39,7 @@ def get_rules(platform: str = "shopee_my", product_category: str = "general") ->
     获取过滤后的违禁词规则
     - platform: 平台过滤（shopee_my / lazada_my）
     - product_category: 产品类目过滤（general / beauty / electronics / fashion / home）
+    - 支持新字段 ruleType: hard_ban / soft_ban / review
 
     Args:
         platform: 平台标识，默认 shopee_my

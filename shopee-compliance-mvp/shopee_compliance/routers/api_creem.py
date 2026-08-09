@@ -18,7 +18,7 @@ from config import (
     CREEM_API_KEY, CREEM_WEBHOOK_SECRET, CREEM_PRODUCT_MONTHLY,
     CREEM_API_BASE, CREEM_SUCCESS_URL, CREEM_CANCEL_URL, DATABASE_PATH
 )
-from database import get_db, get_trial_by_email, get_trial_by_token, upgrade_to_paid
+from database import get_db, get_trial_by_email, get_trial_by_token, upgrade_to_paid, get_system_flag
 from auth import is_pro_user
 
 router = APIRouter(prefix="/api/creem", tags=["creem"])
@@ -47,6 +47,14 @@ async def create_checkout(req: CheckoutReq, request: Request):
         if not user:
             raise HTTPException(status_code=401, detail="Invalid session")
         email = user["email"]
+
+        # Admin 1.0: 熔断检查 — 支付功能停用时不允许创建 checkout
+        payment_disabled = await get_system_flag(db, "payment_disabled")
+        if payment_disabled == "1":
+            raise HTTPException(
+                status_code=503,
+                detail="系统正在进行安全升级以优化您的体验，Pro 订阅将暂时关闭。您可以继续使用免费功能，或关注我们的 WhatsApp 频道获取恢复通知。"
+            )
     finally:
         await db.close()
 
@@ -61,12 +69,17 @@ async def create_checkout(req: CheckoutReq, request: Request):
         resp = await client.post(
             f"{CREEM_API_BASE}/v1/checkouts",
             json=payload,
-            headers={"x-api-key": CREEM_API_KEY},
+            headers={
+                "x-api-key": CREEM_API_KEY,
+                "Content-Type": "application/json",
+            },
             timeout=15.0
         )
         if resp.status_code != 200:
-            print(f"[Creem Checkout Error] {resp.status_code}: {resp.text}")
-            raise HTTPException(resp.status_code, f"Creem API error: {resp.text}")
+            error_detail = resp.text
+            print(f"[Creem Checkout Error] {resp.status_code}: {error_detail}")
+            print(f"[Creem Checkout Payload] product_id={CREEM_PRODUCT_MONTHLY}, api_base={CREEM_API_BASE}")
+            raise HTTPException(resp.status_code, f"Creem API error: {error_detail}")
 
         data = resp.json()
         checkout_url = data.get("checkout_url") or data.get("url")
@@ -121,11 +134,13 @@ async def creem_webhook(request: Request):
         if event_type in ("checkout.completed", "subscription.active"):
             # 激活付费订阅
             paid_until = _parse_period_end(period_end)
+            now_iso = datetime.utcnow().isoformat()
             await db.execute("""
                 UPDATE trials SET status='paid', plan_type='creem_pro',
-                    paid_until=?, billplz_bill_id=?, subscription_status='active'
+                    paid_until=?, billplz_bill_id=?, subscription_status='active',
+                    paid_at=COALESCE(paid_at, ?)
                 WHERE email=?
-            """, (paid_until, subscription_id, email))
+            """, (paid_until, subscription_id, now_iso, email))
             await db.commit()
             print(f"[Creem Webhook] Activated pro for {email}, until {paid_until}")
 

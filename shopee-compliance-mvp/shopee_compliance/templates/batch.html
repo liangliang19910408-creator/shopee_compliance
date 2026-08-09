@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Batch Scan - Shopee Compliance</title>
+    <title>Batch Scan - Compliance MY | Pre-Audit & Profit Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -71,14 +71,14 @@
     <nav class="w-full bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 sticky top-0 z-50">
         <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center">
+                <div class="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
                     <span class="text-xs font-bold">SC</span>
                 </div>
-                <span class="font-semibold text-lg">Compliance Checker</span>
+                <span class="font-semibold text-lg">Compliance MY</span>
             </div>
             <div class="flex items-center gap-4">
                 <a href="/scan" class="text-sm text-slate-400 hover:text-white transition">Single Scan</a>
-                <a href="/batch" class="text-sm text-indigo-400 font-medium">Batch Scan</a>
+                <a href="/batch" class="text-sm text-orange-400 font-medium">Batch Scan</a>
                 <div id="authButton" class="text-sm">
                     <button onclick="window.location.href='/login'" class="text-slate-400 hover:text-white transition">Log in</button>
                 </div>
@@ -90,8 +90,11 @@
 
     <main class="max-w-4xl mx-auto px-4 py-8">
         <div class="text-center mb-8">
-            <h1 class="text-2xl font-bold mb-2">Batch Title Scan</h1>
-            <p class="text-slate-400 text-sm">Upload a CSV file to scan multiple product titles at once</p>
+            <h1 class="text-2xl font-bold mb-2" data-i18n="batchUploadTitle">Batch Title Scan</h1>
+            <p class="text-slate-400 text-sm" data-i18n="batchUploadSubtitle">Upload a CSV to pre-audit up to 100 titles and calculate profit margins at once.</p>
+            <div id="tierLimitBadge" class="inline-block mt-3 px-4 py-1.5 rounded-full text-xs font-medium bg-orange-500/15 border border-orange-500/30 text-orange-300">
+                <span id="tierLimitText">Loading...</span>
+            </div>
         </div>
 
         <div class="space-y-6">
@@ -106,13 +109,13 @@
                             ondragleave="this.classList.remove('dragover')"
                             ondrop="handleDrop(event)"
                         >
-                            <div class="text-indigo-400 mb-4">
+                            <div class="text-orange-400 mb-4">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                 </svg>
                             </div>
                             <p class="font-medium text-white mb-1">Click or drag CSV file here</p>
-                            <p class="text-slate-400 text-sm">Supported: .csv files, max 200 rows</p>
+                            <p class="text-slate-400 text-sm" id="uploadLimitText">Supported: .csv files, max 200 rows</p>
                             <input type="file" id="fileInput" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
                         </div>
 
@@ -204,7 +207,7 @@
                         <span class="text-sm text-slate-400" id="progressCount">0/0</span>
                     </div>
                     <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
-                        <div id="progressBar" class="h-full bg-indigo-500 progress-bar" style="width: 0%"></div>
+                        <div id="progressBar" class="h-full bg-orange-500 progress-bar" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
@@ -226,9 +229,9 @@
                             <div class="text-2xl font-bold text-amber-400" id="statMedium">0</div>
                             <div class="text-xs text-amber-400">Medium Risk</div>
                         </div>
-                        <div class="bg-blue-500/10 rounded-xl p-4 text-center border border-blue-500/20">
-                            <div class="text-2xl font-bold text-blue-400" id="statLow">0</div>
-                            <div class="text-xs text-blue-400">Low Risk</div>
+                        <div class="bg-orange-500/10 rounded-xl p-4 text-center border border-blue-500/20">
+                            <div class="text-2xl font-bold text-orange-400" id="statLow">0</div>
+                            <div class="text-xs text-orange-400">Low Risk</div>
                         </div>
                         <div class="bg-green-500/10 rounded-xl p-4 text-center border border-green-500/20">
                             <div class="text-2xl font-bold text-green-400" id="statSafe">0</div>
@@ -259,6 +262,8 @@
                                     <th class="text-left py-2 px-3 text-slate-400 font-medium">Category</th>
                                     <th class="text-left py-2 px-3 text-slate-400 font-medium">Risk Level</th>
                                     <th class="text-left py-2 px-3 text-slate-400 font-medium">Score</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">Gross Profit</th>
+                                    <th class="text-left py-2 px-3 text-slate-400 font-medium">Margin</th>
                                     <th class="text-left py-2 px-3 text-slate-400 font-medium">Violations</th>
                                 </tr>
                             </thead>
@@ -275,10 +280,19 @@
                     </svg>
                 </div>
                 <h3 class="font-semibold text-lg mb-2" data-i18n="batchProOnly">Batch Scan is a Pro Feature</h3>
-                <p class="text-slate-400 text-sm mb-4" data-i18n="batchUpgradeHint">Upgrade to Pro for unlimited batch scans (up to 200 items per file)</p>
-                <a href="#" onclick="handleUpgradeFromBatch()" class="inline-flex items-center gap-2 px-6 py-3 btn-gradient rounded-xl font-semibold text-white hover:opacity-90 transition">
+                <p class="text-slate-400 text-sm mb-4" data-i18n="batchUpgradeHint">Upgrade to Pro for batch scans up to 100 items per file</p>
+                <a href="#" onclick="handleUpgradeFromBatch(); return false;" class="inline-flex items-center gap-2 px-6 py-3 btn-gradient rounded-xl font-semibold text-white hover:opacity-90 transition">
                     <span data-i18n="upgradeNow">Upgrade to Pro</span>
                 </a>
+            </div>
+
+            <!-- Free 用户升级提示条 -->
+            <div id="freeUpgradeHint" class="hidden card-gradient rounded-2xl p-4 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400 text-lg">💡</div>
+                    <p class="text-slate-300 text-sm" data-i18n="batchFreeUpgradeHint">You can scan up to 3 items for free. Upgrade to Pro for 100 items per batch.</p>
+                </div>
+                <a href="#" onclick="handleUpgradeFromBatch(); return false;" class="px-4 py-2 btn-gradient rounded-lg text-sm font-semibold text-white hover:opacity-90 transition whitespace-nowrap" data-i18n="upgradeNow">Upgrade to Pro</a>
             </div>
         </div>
     </main>
@@ -288,29 +302,39 @@
         let currentJobId = null;
         let pollInterval = null;
         let currentLang = localStorage.getItem('lang') || 'en';
+        let userTier = 'free';
+        let userBatchLimit = 3;
 
         const WHATSAPP_LINK = 'https://wa.me/yournumber';
 
         const translations = {
             en: {
                 batchProOnly: 'Batch Scan is a Pro Feature',
-                batchUpgradeHint: 'Upgrade to Pro for unlimited batch scans (up to 200 items per file)',
+                batchUpgradeHint: 'Upgrade to Pro for batch scans up to 100 items per file',
                 upgradeNow: 'Upgrade to Pro',
                 batchUploadTitle: 'Batch Title Scan',
-                batchUploadSubtitle: 'Upload a CSV file to scan multiple product titles at once',
+                batchUploadSubtitle: 'Upload a CSV to pre-audit up to 100 titles and calculate profit margins at once.',
                 batchProLockToast: '🔒 Batch scanning is a Pro feature.',
                 batchUpgradeAction: 'Upgrade to Pro',
-                batchHelpAction: 'Get help'
+                batchHelpAction: 'Get help',
+                tierFreeLimit: 'Free Plan: Up to 3 items per batch',
+                tierProLimit: 'Pro/Trial: Up to 100 items per batch',
+                batchLimitExceeded: 'Exceeded your plan limit ({max} items). Upgrade for more.',
+                batchFreeUpgradeHint: 'You can scan up to 3 items for free. Upgrade to Pro for 100 items per batch.'
             },
             zh: {
                 batchProOnly: '批量扫描是 Pro 功能',
-                batchUpgradeHint: '升级 Pro 享受无限批量扫描（每次最多200条）',
+                batchUpgradeHint: '升级 Pro 享受批量扫描，每次最多 100 条',
                 upgradeNow: '升级 Pro',
                 batchUploadTitle: '批量标题扫描',
-                batchUploadSubtitle: '上传 CSV 文件，一次扫描多个商品标题',
+                batchUploadSubtitle: '上传CSV，一次预审最多100条标题并自动计算利润率。',
                 batchProLockToast: '🔒 批量扫描为 Pro 专属功能。',
                 batchUpgradeAction: '升级 Pro',
-                batchHelpAction: '获取帮助'
+                batchHelpAction: '获取帮助',
+                tierFreeLimit: '免费版：每次最多 3 条',
+                tierProLimit: 'Pro/试用版：每次最多 100 条',
+                batchLimitExceeded: '超出当前套餐限制（{max} 条），升级可解锁更多',
+                batchFreeUpgradeHint: '免费版可扫描最多 3 条。升级 Pro 可批量扫描 100 条。'
             }
         };
 
@@ -330,11 +354,20 @@
 
             const toast = document.createElement('div');
             toast.className = 'toast';
+            const actionsHtml = actions.map((a, i) => {
+                if (a.onclick) {
+                    const id = `toastAct${Date.now()}_${i}`;
+                    setTimeout(() => {
+                        const el = document.getElementById(id);
+                        if (el) el.addEventListener('click', (e) => { e.preventDefault(); a.onclick(); });
+                    }, 0);
+                    return `<a href="#" id="${id}" class="text-orange-600 hover:text-orange-700 font-semibold text-sm">${a.text}</a>`;
+                }
+                return `<a href="${a.url}" target="${a.target || '_self'}" class="text-orange-600 hover:text-orange-700 font-semibold text-sm">${a.text}</a>`;
+            }).join(' ');
             toast.innerHTML = `
                 <span>${message}</span>
-                <div class="flex gap-2 mt-2">
-                    ${actions.map(a => `<a href="${a.url}" target="${a.target || '_self'}" class="text-indigo-600 hover:text-indigo-700 font-semibold text-sm">${a.text}</a>`).join(' ')}
-                </div>
+                <div class="flex gap-2 mt-2">${actionsHtml}</div>
             `;
             container.appendChild(toast);
 
@@ -348,7 +381,7 @@
         function showProLockToast() {
             const t = translations[currentLang];
             showToast(t.batchProLockToast, [
-                { text: t.batchUpgradeAction, url: '/pricing/pay#pro' },
+                { text: t.batchUpgradeAction, onclick: () => handleUpgradeFromBatch() },
                 { text: t.batchHelpAction, url: WHATSAPP_LINK, target: '_blank' }
             ]);
         }
@@ -360,6 +393,18 @@
                 (data.status === 'trial' && data.trial_end && new Date(data.trial_end).getTime() > now);
         }
 
+        function isTrialUser(data) {
+            if (!data || !data.logged_in) return false;
+            const now = new Date().getTime();
+            return data.status === 'trial' && data.trial_end && new Date(data.trial_end).getTime() > now;
+        }
+
+        function getUserTier(data) {
+            if (isProUser(data) && data.status === 'paid') return 'pro';
+            if (isTrialUser(data)) return 'trial';
+            return 'free';
+        }
+
         async function checkLoginStatus() {
             try {
                 const res = await fetch('/api/user/info');
@@ -368,19 +413,34 @@
                 const authBtn = document.getElementById('authButton');
                 const scanControl = document.getElementById('scanControl');
                 const noAccessSection = document.getElementById('noAccessSection');
+                const t = translations[currentLang];
 
                 if (data.logged_in) {
-                    authBtn.innerHTML = `<span class="text-sm text-indigo-400">${data.email}</span>`;
+                    authBtn.innerHTML = `<span class="text-sm text-orange-400">${data.email}</span>`;
                     
-                    const isPro = isProUser(data);
+                    // 所有已登录用户都可以使用批量扫描，按层级限制条数
+                    userTier = getUserTier(data);
+                    userBatchLimit = (userTier === 'free') ? 3 : 100;
                     
-                    if (isPro) {
-                        scanControl.classList.remove('hidden');
-                        noAccessSection.classList.add('hidden');
+                    // 更新层级提示
+                    const tierText = document.getElementById('tierLimitText');
+                    const uploadLimitEl = document.getElementById('uploadLimitText');
+                    if (userTier === 'free') {
+                        tierText.textContent = t.tierFreeLimit;
+                        uploadLimitEl.textContent = `Supported: .csv files, max ${userBatchLimit} rows`;
                     } else {
-                        window.location.href = '/pricing/pay#pro';
-                        return;
+                        tierText.textContent = t.tierProLimit;
+                        uploadLimitEl.textContent = `Supported: .csv files, max ${userBatchLimit} rows`;
                     }
+
+                    // Free 用户显示升级提示
+                    const freeUpgradeHint = document.getElementById('freeUpgradeHint');
+                    if (freeUpgradeHint) {
+                        freeUpgradeHint.classList.toggle('hidden', userTier !== 'free');
+                    }
+
+                    scanControl.classList.remove('hidden');
+                    noAccessSection.classList.add('hidden');
                 } else {
                     window.location.href = '/login';
                     return;
@@ -448,8 +508,9 @@
                     });
                 }
 
-                if (csvData.length > 200) {
-                    alert('Maximum 200 rows allowed');
+                if (csvData.length > userBatchLimit) {
+                    const t = translations[currentLang];
+                    alert(t.batchLimitExceeded.replace('{max}', userBatchLimit));
                     csvData = [];
                     return;
                 }
@@ -676,7 +737,7 @@
                     const riskColors = {
                         high: 'bg-red-500/20 text-red-400 border-red-500/30',
                         medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-                        low: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                        low: 'bg-orange-500/20 text-orange-400 border-blue-500/30',
                         safe: 'bg-green-500/20 text-green-400 border-green-500/30'
                     };
                     const riskLabels = {
@@ -701,6 +762,29 @@
                         }
                     }
 
+                    // Calculate gross profit and margin
+                    let grossProfitHtml = '-';
+                    let marginHtml = '-';
+                    if (item.cost_rm != null && item.price_rm != null && item.price_rm > 0) {
+                        const profit = (item.price_rm - item.cost_rm).toFixed(2);
+                        const margin = ((item.price_rm - item.cost_rm) / item.price_rm * 100).toFixed(1);
+                        const marginFloat = parseFloat(margin);
+                        let marginColor = 'text-slate-400';
+                        let marginLabel = '';
+                        if (marginFloat >= 40) {
+                            marginColor = 'text-green-400';
+                            marginLabel = ' 🟢';
+                        } else if (marginFloat >= 20) {
+                            marginColor = 'text-amber-400';
+                            marginLabel = ' 🟡';
+                        } else {
+                            marginColor = 'text-red-400';
+                            marginLabel = ' 🔴';
+                        }
+                        grossProfitHtml = `RM ${profit}`;
+                        marginHtml = `<span class="${marginColor} font-medium">${margin}%${marginLabel}</span>`;
+                    }
+
                     const row = document.createElement('tr');
                     row.className = 'border-b border-slate-700/50';
                     row.innerHTML = `
@@ -714,6 +798,8 @@
                             </span>
                         </td>
                         <td class="py-2 px-3 text-white">${item.score || 100}</td>
+                        <td class="py-2 px-3 text-white">${grossProfitHtml}</td>
+                        <td class="py-2 px-3">${marginHtml}</td>
                         <td class="py-2 px-3 text-slate-400 text-xs max-w-xs">${violationsHtml}</td>
                     `;
                     tbody.appendChild(row);
@@ -749,7 +835,9 @@
                     body: JSON.stringify({ source_page: 'batch', button_position: 'pro_required_section' })
                 });
             } catch (e) {}
-            window.location.href = '/pricing/#pro';
+            // 差异化跳转：未登录→注册页，已登录→定价页
+            const isLoggedIn = document.cookie.includes('session_token');
+            window.location.href = isLoggedIn ? '/pricing/pay' : '/login#register';
         }
     </script>
 </body>

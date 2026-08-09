@@ -7,11 +7,11 @@
 const translations = {
     en: {
         // Brand
-        "brandTitle": "Protect Your Shop From Unexpected Bans.",
-        "brandSubtitle": "The simplest way to check Shopee & Lazada listing risks.",
-        "trust1": "Free 3 scans/day",
-        "trust2": "No credit card",
-        "trust3": "Smart Pre-Check Tool for Shopee MY",
+        "brandTitle": "AI Pre-Audit & Profit Intelligence for Shopee & Lazada Sellers.",
+        "brandSubtitle": "Pre-audit compliance, calculate profit margins, and scale with confidence.",
+        "trust1": "Free 5 scans/day",
+        "trust2": "Profit margin calculator",
+        "trust3": "14-day Pro trial",
 
         // Top bar
         "backHome": "Back",
@@ -26,6 +26,8 @@ const translations = {
         "registerTitle": "Create your account",
         "registerSubtitle": "Start scanning for free. No credit card.",
         "emailLabel": "Email",
+        "whatsappLabel": "WhatsApp Number",
+        "whatsappHint": "Malaysian number only. +60 prefix will be added automatically.",
         "passwordLabel": "Password",
         "confirmPasswordLabel": "Confirm Password",
         "passwordHint": "Min 8 characters, with letters and numbers",
@@ -43,19 +45,22 @@ const translations = {
         // Toast
         "toastInvalid": "Invalid email or password",
         "toastEmpty": "Please enter email and password",
+        "toastEmptyWa": "Please enter WhatsApp number",
+        "toastInvalidWa": "Please enter a valid Malaysian WhatsApp number (9-11 digits)",
         "toastNetwork": "Network error. Please try again.",
         "toastPasswordMismatch": "Passwords do not match",
         "toastPasswordWeak": "Password must be at least 8 characters with letters and numbers",
-        "toastRegisterSuccess": "Registration successful! You now have 7 days free trial.",
-        "toastEmailExists": "Email already registered. Please login instead."
+        "toastRegisterSuccess": "Registration successful! You now have 14 days free trial.",
+        "toastEmailExists": "Email already registered. Please login instead.",
+        "toastWaExists": "This WhatsApp number has already been used."
     },
     zh: {
         // Brand
-        "brandTitle": "保护您的店铺，远离意外下架。",
-        "brandSubtitle": "检测 Shopee & Lazada 上架风险的最简方式。",
-        "trust1": "每天 10 次免费扫描",
-        "trust2": "无需信用卡",
-        "trust3": "专为 Shopee 马来站打造的智能预审工具",
+        "brandTitle": "AI预审与利润智能，Shopee & Lazada 卖家上架前必备。",
+        "brandSubtitle": "上架前预审合规，铺货前算清利润，安心扩展。",
+        "trust1": "免费 5 次扫描/天",
+        "trust2": "利润率计算器",
+        "trust3": "14 天 Pro 试用",
 
         // Top bar
         "backHome": "返回",
@@ -70,6 +75,8 @@ const translations = {
         "registerTitle": "创建您的账户",
         "registerSubtitle": "免费开始扫描，无需信用卡。",
         "emailLabel": "邮箱",
+        "whatsappLabel": "WhatsApp 号码",
+        "whatsappHint": "仅限马来西亚号码，将自动添加 +60 前缀。",
         "passwordLabel": "密码",
         "confirmPasswordLabel": "确认密码",
         "passwordHint": "至少8位，需包含字母和数字",
@@ -87,11 +94,14 @@ const translations = {
         // Toast
         "toastInvalid": "邮箱或密码错误",
         "toastEmpty": "请输入邮箱和密码",
+        "toastEmptyWa": "请输入 WhatsApp 号码",
+        "toastInvalidWa": "请输入有效的马来西亚 WhatsApp 号码（9-11 位数字）",
         "toastNetwork": "网络错误，请重试。",
         "toastPasswordMismatch": "两次密码输入不一致",
         "toastPasswordWeak": "密码至少8位，且需包含字母和数字",
-        "toastRegisterSuccess": "注册成功！您已获得7天免费试用。",
-        "toastEmailExists": "邮箱已注册，请直接登录。"
+        "toastRegisterSuccess": "注册成功！您已获得 14 天免费试用。",
+        "toastEmailExists": "邮箱已注册，请直接登录。",
+        "toastWaExists": "此 WhatsApp 号码已被使用。"
     }
 };
 
@@ -99,6 +109,14 @@ const translations = {
 let currentLang = localStorage.getItem("lang") || "en";
 let currentTab = "login"; // "login" | "register"
 let isSubmitting = false;
+
+// P2-2: Cookie 读取工具函数（用于读取 plg_session_id 进行数据认领）
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
 
 // ============ Initialize ============
 document.addEventListener("DOMContentLoaded", () => {
@@ -143,6 +161,8 @@ function switchTab(tab) {
     const tabRegister = document.getElementById("tabRegister");
     const confirmPasswordRow = document.getElementById("confirmPasswordRow");
     const confirmPasswordInput = document.getElementById("confirmPassword");
+    const waRow = document.getElementById("whatsappRow");
+    const waInput = document.getElementById("wa_number");
     const forgotRow = document.getElementById("forgotRow");
 
     if (tab === "login") {
@@ -150,12 +170,16 @@ function switchTab(tab) {
         tabRegister.classList.remove("active");
         if (confirmPasswordRow) confirmPasswordRow.classList.add("hidden");
         if (confirmPasswordInput) confirmPasswordInput.removeAttribute("required");
+        if (waRow) waRow.classList.add("hidden");
+        if (waInput) waInput.removeAttribute("required");
         if (forgotRow) forgotRow.style.display = "flex";
     } else {
         tabRegister.classList.add("active");
         tabLogin.classList.remove("active");
         if (confirmPasswordRow) confirmPasswordRow.classList.remove("hidden");
         if (confirmPasswordInput) confirmPasswordInput.setAttribute("required", "");
+        if (waRow) waRow.classList.remove("hidden");
+        if (waInput) waInput.setAttribute("required", "");
         if (forgotRow) forgotRow.style.display = "none";
     }
 
@@ -199,9 +223,26 @@ function setupForm() {
             return;
         }
 
+        let wa_number = null;
+
         // 注册时的额外验证
         if (currentTab === "register") {
             const confirmPassword = document.getElementById("confirmPassword")?.value;
+            const waRaw = (document.getElementById("wa_number")?.value || "").trim();
+
+            if (!waRaw) {
+                showToast(t.toastEmptyWa);
+                return;
+            }
+
+            // 标准化 WA 号：去除空格、横线、+60 前缀等，仅保留数字
+            const digitsOnly = waRaw.replace(/\D/g, "").replace(/^60/, "");
+            const waRegex = /^\d{9,11}$/;
+            if (!waRegex.test(digitsOnly)) {
+                showToast(t.toastInvalidWa);
+                return;
+            }
+            wa_number = "+60" + digitsOnly;
 
             if (!confirmPassword) {
                 showToast(t.toastEmpty);
@@ -225,10 +266,13 @@ function setupForm() {
 
         try {
             const endpoint = currentTab === "login" ? "/api/auth/login" : "/api/auth/register";
+            const body = currentTab === "register"
+                ? { email, password, wa_number }
+                : { email, password };
             const res = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify(body)
             });
 
             const data = await res.json().catch(() => ({}));
@@ -241,21 +285,41 @@ function setupForm() {
                     await new Promise(resolve => setTimeout(resolve, 1500));
                 }
 
-                // Success: store token and redirect
-                if (data.token) {
-                    localStorage.setItem("auth_token", data.token);
+                // P0-2: Fixed field mapping — backend returns email/trial_token, not token/user
+                if (data.trial_token) {
+                    localStorage.setItem("trial_token", data.trial_token);
                 }
-                if (data.user) {
-                    localStorage.setItem("user_email", data.user.email || email);
+                if (data.email) {
+                    localStorage.setItem("trial_email", data.email);
+                    localStorage.setItem("user_email", data.email);
                 }
-                // Redirect to dashboard or scan
-                const redirectTo = data.redirect || "/scan";
+                if (data.trial_end) {
+                    localStorage.setItem("trial_end", data.trial_end);
+                }
+
+                // P2-2: If registering, pass session_id for data claiming
+                let redirectTo = "/scan";
+                if (currentTab === "register") {
+                    // Check for session cookie for data claiming
+                    const sid = getCookie("plg_session_id");
+                    if (sid) {
+                        redirectTo = `/dashboard?claimed=${encodeURIComponent(sid)}`;
+                    } else {
+                        redirectTo = "/dashboard";
+                    }
+                } else if (data.redirect) {
+                    redirectTo = data.redirect;
+                }
                 window.location.href = redirectTo;
             } else if (res.status === 409) {
-                // 邮箱已存在
-                showToast(t.toastEmailExists);
-                // 自动切换到登录 tab
-                setTimeout(() => switchTab('login'), 1500);
+                // 邮箱已存在 / WA 号已存在
+                const code = data.code;
+                if (code === "WA_EXISTS") {
+                    showToast(t.toastWaExists);
+                } else {
+                    showToast(t.toastEmailExists);
+                    setTimeout(() => switchTab('login'), 1500);
+                }
                 setSubmitting(false);
             } else {
                 showToast(data.message || t.toastInvalid);

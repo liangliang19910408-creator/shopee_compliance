@@ -73,31 +73,31 @@ VARIANT_MAP = {
 }
 
 
-def load_banned_words(product_category: str = "general", include_lazada: bool = False) -> List[dict]:
+def load_banned_words(product_category: str = "general", platform: str = "shopee") -> List[dict]:
     """
     从词库加载器获取违禁词列表
     - product_category: 产品类目过滤（general/beauty/electronics/fashion/home）
-    - include_lazada: 是否包含 Lazada MY 规则
+    - platform: 平台标识（shopee/lazada）
     """
-    platform = "lazada_my" if include_lazada else "shopee_my"
-    return get_rules(platform=platform, product_category=product_category)
+    platform_tag = "lazada_my" if platform == "lazada" else "shopee_my"
+    return get_rules(platform=platform_tag, product_category=product_category)
 
 
-def scan(title: str, description: str, product_category: str = "general", include_lazada: bool = False) -> List[Violation]:
+def scan(title: str, description: str, product_category: str = "general", platform: str = "shopee") -> List[Violation]:
     """
     扫描标题和描述中的违禁词（Phase 2 重构版）
     - 使用归一化匹配，确保连字符词与空格分隔词能正确匹配
     - product_category: 类目过滤（general/beauty/electronics/fashion/home）
-    - include_lazada: 是否同时包含 Lazada MY 规则
+    - platform: 平台标识（shopee/lazada），平台隔离模式
     - 变体词不在 violations 中返回，由 hygiene 区处理（绝不自动替换）
     - 优先匹配更长的词组（如 "original guarantee"），避免被单词（如 "original"）打断
-    - Shopee-only模式下：仅加载_global和shopee_my规则，纯Lazada词完全跳过
+    - 平台隔离：仅加载 _global 和当前平台规则，另一平台的词完全跳过
     """
     violations: List[Violation] = []
-    all_banned_words = load_banned_words(product_category, include_lazada=True)
+    all_banned_words = load_banned_words(product_category, platform=platform)
 
-    current_platform = "lazada_my" if include_lazada else "shopee_my"
-    active_tags = {"_global", current_platform}
+    current_platform_tag = "lazada_my" if platform == "lazada" else "shopee_my"
+    active_tags = {"_global", current_platform_tag}
 
     def is_rule_for_current_platform(item: dict) -> bool:
         tags = item.get("tags", ["_global", "shopee_my"])
@@ -177,7 +177,8 @@ def scan(title: str, description: str, product_category: str = "general", includ
                     matched_word=item["word"],
                     suggestion=suggestion_text,
                     reason=reason,
-                    safe_title_template=item.get("safe_title_template")
+                    safe_title_template=item.get("safe_title_template"),
+                    rule_type=item.get("ruleType")
                 ))
                 break
 

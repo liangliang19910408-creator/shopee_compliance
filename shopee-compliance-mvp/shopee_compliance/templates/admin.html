@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Console - ComplianceMy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        body { background: #0f172a; color: #e2e8f0; }
+        .card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; }
+        .stat-card { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
+        .btn-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); }
+        .btn-primary:hover { background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%); }
+        .btn-danger { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); }
+        .btn-danger:hover { background: linear-gradient(135deg, #b91c1c 0%, #dc2626 100%); }
+        .btn-success { background: linear-gradient(135deg, #059669 0%, #10b981 100%); }
+        .btn-success:hover { background: linear-gradient(135deg, #047857 0%, #059669 100%); }
+        .status-pending { color: #ef4444; }
+        .status-adopted { color: #10b981; }
+        .status-dismissed { color: #6b7280; }
+        .modal-overlay { background: rgba(0,0,0,0.7); }
+        .toast { animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .pulse-red { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-6">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Admin Console</h1>
+                <p class="text-slate-400 text-sm mt-1">ComplianceMy Management</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/" class="text-slate-400 hover:text-white text-sm transition">Back to App</a>
+                <button onclick="logout()" class="text-red-400 hover:text-red-300 text-sm transition">Logout</button>
+            </div>
+        </div>
+
+        <!-- Toast -->
+        <div id="toast" class="hidden fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg toast"></div>
+
+        <!-- Loading -->
+        <div id="loadingScreen" class="flex items-center justify-center py-20">
+            <div class="text-slate-400">Loading...</div>
+        </div>
+
+        <!-- Main Content (hidden until loaded) -->
+        <div id="mainContent" class="hidden">
+
+            <!-- Section 1: Dashboard Stats -->
+            <h2 class="text-lg font-semibold text-slate-300 mb-3">Dashboard</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                <!-- Total Users -->
+                <div class="card stat-card p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Total Users</p>
+                    <p class="text-3xl font-bold text-white mt-1" id="statTotalUsers">-</p>
+                </div>
+                <!-- Trial Users -->
+                <div class="card stat-card p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Trial Users</p>
+                    <p class="text-3xl font-bold text-blue-400 mt-1" id="statTrialUsers">-</p>
+                </div>
+                <!-- Pro Users -->
+                <div class="card stat-card p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Pro Users</p>
+                    <p class="text-3xl font-bold text-green-400 mt-1" id="statProUsers">-</p>
+                </div>
+                <!-- Free Users -->
+                <div class="card stat-card p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Free Users</p>
+                    <p class="text-3xl font-bold text-slate-400 mt-1" id="statFreeUsers">-</p>
+                </div>
+            </div>
+
+            <!-- Today's Activity -->
+            <h2 class="text-lg font-semibold text-slate-300 mb-3">Today's Activity</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+                <!-- Today New Users -->
+                <div class="card p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">New Registrations</p>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <p class="text-3xl font-bold text-white" id="statTodayNew">-</p>
+                        <p class="text-xs text-slate-500" id="statYesterdayNew"></p>
+                    </div>
+                </div>
+                <!-- Today Conversions -->
+                <div class="card p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Paid Conversions</p>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <p class="text-3xl font-bold text-green-400" id="statTodayConv">-</p>
+                        <p class="text-xs text-slate-500" id="statYesterdayConv"></p>
+                    </div>
+                </div>
+                <!-- Pending Feedback -->
+                <div class="card p-4">
+                    <p class="text-slate-400 text-xs uppercase tracking-wide">Pending Feedback</p>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <p class="text-3xl font-bold text-orange-400" id="statPendingFeedback">-</p>
+                        <p class="text-xs text-slate-500" id="statYesterdayFeedback"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Creem Link -->
+            <div class="mb-6">
+                <a href="https://creem.io" target="_blank" class="inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 text-sm transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                    View Revenue in Creem Dashboard
+                </a>
+            </div>
+
+            <!-- Section 2: Payment Circuit Breaker -->
+            <div class="card p-5 mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white">Payment Circuit Breaker</h2>
+                        <p class="text-slate-400 text-sm mt-1">Stop payment functionality in emergencies. Users can still register and use trial.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="paymentStatusBadge" class="px-3 py-1 rounded-full text-sm font-medium">-</span>
+                        <button id="btnEnablePayment" onclick="showToggleModal(false)" class="hidden btn-success px-4 py-2 rounded-lg text-white text-sm font-medium transition">
+                            Resume Payment
+                        </button>
+                        <button id="btnDisablePayment" onclick="showToggleModal(true)" class="hidden btn-danger px-4 py-2 rounded-lg text-white text-sm font-medium transition">
+                            Stop Payment
+                        </button>
+                    </div>
+                </div>
+                <div id="paymentLogs" class="mt-4 space-y-1"></div>
+            </div>
+
+            <!-- Section 3: Feedback Board -->
+            <div class="card p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-white">Feedback Board</h2>
+                    <div class="flex gap-2">
+                        <button onclick="loadFeedback('pending')" id="filterPending" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-600 text-white transition">Pending</button>
+                        <button onclick="loadFeedback('adopted')" id="filterAdopted" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 transition">Adopted</button>
+                        <button onclick="loadFeedback('dismissed')" id="filterDismissed" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 transition">Dismissed</button>
+                        <button onclick="loadFeedback(null)" id="filterAll" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 transition">All</button>
+                    </div>
+                </div>
+                <div id="feedbackList" class="space-y-3">
+                    <p class="text-slate-500 text-sm text-center py-8">Loading feedback...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toggle Payment Modal -->
+    <div id="toggleModal" class="hidden fixed inset-0 z-40 flex items-center justify-center modal-overlay">
+        <div class="card p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-bold text-white mb-2" id="modalTitle">Stop Payment</h3>
+            <p class="text-slate-400 text-sm mb-4" id="modalDesc">This will prevent users from upgrading to Pro. Existing Pro users are not affected.</p>
+            <div class="mb-4">
+                <label class="block text-sm text-slate-300 mb-1">Type CONFIRM to continue</label>
+                <input type="text" id="confirmInput" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white focus:border-orange-500 focus:outline-none" placeholder="CONFIRM">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-slate-300 mb-1">Reason (optional)</label>
+                <textarea id="reasonInput" rows="2" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white focus:border-orange-500 focus:outline-none" placeholder="Describe the reason..."></textarea>
+            </div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 text-sm transition">Cancel</button>
+                <button onclick="executeToggle()" id="modalConfirmBtn" class="btn-danger px-4 py-2 rounded-lg text-white text-sm font-medium transition">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Adopt Feedback Modal -->
+    <div id="adoptModal" class="hidden fixed inset-0 z-40 flex items-center justify-center modal-overlay">
+        <div class="card p-6 max-w-lg w-full mx-4">
+            <h3 class="text-lg font-bold text-white mb-2">Adopt Feedback & Reward</h3>
+            <div id="adoptFeedbackContent" class="mb-4 p-3 rounded-lg bg-slate-800 text-sm text-slate-300"></div>
+            <div id="adoptResult" class="hidden mb-4 p-4 rounded-lg bg-green-900/30 border border-green-700">
+                <p class="text-green-400 text-sm font-medium mb-2">Reward Sent!</p>
+                <p class="text-slate-300 text-sm mb-2" id="adoptResultMsg"></p>
+                <p class="text-slate-400 text-xs mb-2">Copy this message and send to the user via WhatsApp:</p>
+                <div class="flex gap-2">
+                    <textarea id="waMessage" rows="4" readonly class="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white text-sm"></textarea>
+                    <button onclick="copyWAMessage()" class="btn-primary px-3 py-2 rounded-lg text-white text-sm transition shrink-0">Copy</button>
+                </div>
+                <a id="waSendLink" href="#" target="_blank" class="mt-2 inline-flex items-center gap-1 text-green-400 hover:text-green-300 text-sm transition">
+                    Open WhatsApp
+                </a>
+            </div>
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeAdoptModal()" class="px-4 py-2 rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 text-sm transition">Close</button>
+                <button onclick="executeAdopt()" id="adoptConfirmBtn" class="btn-success px-4 py-2 rounded-lg text-white text-sm font-medium transition">Adopt & Reward 7 Days Pro</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+const API_BASE = '/api/admin';
+let currentFeedbackId = null;
+let currentFilter = 'pending';
+let pendingToggleAction = null; // true=disable, false=enable
+
+// ============ Init ============
+async function init() {
+    try {
+        await Promise.all([loadDashboard(), loadPaymentStatus(), loadFeedback('pending')]);
+        document.getElementById('loadingScreen').classList.add('hidden');
+        document.getElementById('mainContent').classList.remove('hidden');
+    } catch (e) {
+        if (e.status === 401) {
+            window.location.href = '/login';
+        } else if (e.status === 403) {
+            document.getElementById('loadingScreen').innerHTML = '<div class="text-red-400 text-center py-20">Access Denied: Admin only</div>';
+        } else {
+            document.getElementById('loadingScreen').innerHTML = '<div class="text-red-400 text-center py-20">Failed to load: ' + (e.detail || 'Unknown error') + '</div>';
+        }
+    }
+}
+
+async function apiCall(path, options = {}) {
+    const resp = await fetch(API_BASE + path, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+        const err = new Error(data.detail || 'API error');
+        err.status = resp.status;
+        err.detail = data.detail;
+        throw err;
+    }
+    return data;
+}
+
+// ============ Dashboard ============
+async function loadDashboard() {
+    const data = await apiCall('/dashboard');
+    const s = data.data;
+
+    document.getElementById('statTotalUsers').textContent = s.total_users;
+    document.getElementById('statTrialUsers').textContent = s.trial_users;
+    document.getElementById('statProUsers').textContent = s.pro_users;
+    document.getElementById('statFreeUsers').textContent = s.free_users;
+
+    document.getElementById('statTodayNew').textContent = s.today_new_users;
+    document.getElementById('statYesterdayNew').textContent = `(Yesterday: ${s.yesterday_new_users})`;
+
+    document.getElementById('statTodayConv').textContent = s.today_conversions;
+    document.getElementById('statYesterdayConv').textContent = `(Yesterday: ${s.yesterday_conversions})`;
+
+    document.getElementById('statPendingFeedback').textContent = s.pending_feedback;
+    document.getElementById('statYesterdayFeedback').textContent = `(Yesterday: ${s.yesterday_pending_feedback})`;
+}
+
+// ============ Payment Status ============
+async function loadPaymentStatus() {
+    const data = await apiCall('/payment-status');
+    const disabled = data.data.payment_disabled;
+    const badge = document.getElementById('paymentStatusBadge');
+    const btnEnable = document.getElementById('btnEnablePayment');
+    const btnDisable = document.getElementById('btnDisablePayment');
+
+    if (disabled) {
+        badge.textContent = 'PAYMENT DISABLED';
+        badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-red-900/50 text-red-400 border border-red-700 pulse-red';
+        btnEnable.classList.remove('hidden');
+        btnDisable.classList.add('hidden');
+    } else {
+        badge.textContent = 'PAYMENT ACTIVE';
+        badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-900/50 text-green-400 border border-green-700';
+        btnEnable.classList.add('hidden');
+        btnDisable.classList.remove('hidden');
+    }
+
+    // Render logs
+    const logsDiv = document.getElementById('paymentLogs');
+    if (data.data.logs && data.data.logs.length > 0) {
+        logsDiv.innerHTML = data.data.logs.map(log => {
+            const detail = JSON.parse(log.detail || '{}');
+            return `<div class="text-xs text-slate-500">${log.created_at.substring(0,19)} | ${log.admin_email} | ${detail.disabled ? 'Disabled' : 'Enabled'} | ${detail.reason || ''}</div>`;
+        }).join('');
+    } else {
+        logsDiv.innerHTML = '<p class="text-xs text-slate-600">No operation history</p>';
+    }
+}
+
+function showToggleModal(disable) {
+    pendingToggleAction = disable;
+    document.getElementById('modalTitle').textContent = disable ? 'Stop Payment' : 'Resume Payment';
+    document.getElementById('modalDesc').textContent = disable
+        ? 'This will prevent users from upgrading to Pro. Existing Pro users are not affected.'
+        : 'Payment functionality will be restored immediately.';
+    document.getElementById('confirmInput').value = '';
+    document.getElementById('reasonInput').value = '';
+    document.getElementById('modalConfirmBtn').textContent = disable ? 'Confirm Stop' : 'Confirm Resume';
+    document.getElementById('modalConfirmBtn').className = disable
+        ? 'btn-danger px-4 py-2 rounded-lg text-white text-sm font-medium transition'
+        : 'btn-success px-4 py-2 rounded-lg text-white text-sm font-medium transition';
+    document.getElementById('toggleModal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('toggleModal').classList.add('hidden');
+    pendingToggleAction = null;
+}
+
+async function executeToggle() {
+    if (pendingToggleAction === true) {
+        if (document.getElementById('confirmInput').value !== 'CONFIRM') {
+            showToast('Please type CONFIRM to continue', 'error');
+            return;
+        }
+    }
+    const reason = document.getElementById('reasonInput').value.trim();
+    try {
+        await apiCall('/toggle-payment', {
+            method: 'POST',
+            body: JSON.stringify({ disabled: pendingToggleAction, reason }),
+        });
+        closeModal();
+        await loadPaymentStatus();
+        showToast(pendingToggleAction ? 'Payment disabled' : 'Payment resumed', 'success');
+    } catch (e) {
+        showToast(e.detail || 'Operation failed', 'error');
+    }
+}
+
+// ============ Feedback ============
+async function loadFeedback(status) {
+    currentFilter = status;
+    // Update filter buttons
+    ['filterPending', 'filterAdopted', 'filterDismissed', 'filterAll'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700 text-slate-300 hover:bg-slate-600 transition';
+    });
+    if (status === 'pending') document.getElementById('filterPending').className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-600 text-white transition';
+    else if (status === 'adopted') document.getElementById('filterAdopted').className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-600 text-white transition';
+    else if (status === 'dismissed') document.getElementById('filterDismissed').className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-600 text-white transition';
+    else document.getElementById('filterAll').className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-600 text-white transition';
+
+    const path = status ? `/feedback?status=${status}` : '/feedback';
+    const data = await apiCall(path);
+    renderFeedback(data.data);
+}
+
+function renderFeedback(feedbacks) {
+    const container = document.getElementById('feedbackList');
+    if (feedbacks.length === 0) {
+        container.innerHTML = '<p class="text-slate-500 text-sm text-center py-8">No feedback found</p>';
+        return;
+    }
+
+    container.innerHTML = feedbacks.map(f => {
+        const statusClass = f.status === 'pending' ? 'status-pending' : (f.status === 'adopted' ? 'status-adopted' : 'status-dismissed');
+        const statusText = f.status === 'pending' ? 'Pending' : (f.status === 'adopted' ? 'Adopted' : 'Dismissed');
+        const contentLen = f.content.trim().length;
+        const canAdopt = f.status === 'pending' && contentLen >= 10;
+        const waLink = f.wa_number ? `https://wa.me/${f.wa_number.replace('+','')}` : '#';
+
+        return `
+        <div class="p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+            <div class="flex items-start justify-between gap-3 mb-2">
+                <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-medium text-white">${f.email}</span>
+                        <span class="${statusClass} text-xs font-medium uppercase">${statusText}</span>
+                        ${f.reward_days > 0 ? `<span class="text-xs text-green-400">+${f.reward_days}d Pro</span>` : ''}
+                    </div>
+                    <p class="text-slate-300 text-sm">${escapeHtml(f.content)}</p>
+                    <p class="text-slate-500 text-xs mt-1">${f.created_at.substring(0,19)} | User: ${f.user_status || 'unknown'}</p>
+                </div>
+                <div class="flex flex-col gap-2 shrink-0">
+                    ${canAdopt ? `<button onclick="showAdoptModal(${f.id})" class="btn-success px-3 py-1.5 rounded-lg text-white text-xs font-medium transition">Adopt</button>` : ''}
+                    ${f.status === 'pending' ? `<button onclick="dismissFeedback(${f.id})" class="px-3 py-1.5 rounded-lg bg-slate-600 text-slate-300 hover:bg-slate-500 text-xs transition">Dismiss</button>` : ''}
+                    ${f.wa_number ? `<a href="${waLink}" target="_blank" class="px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-500 text-xs text-center transition">WA</a>` : ''}
+                </div>
+            </div>
+            ${contentLen < 10 && f.status === 'pending' ? '<p class="text-xs text-amber-500 mt-1">Too short to adopt (min 10 chars)</p>' : ''}
+        </div>`;
+    }).join('');
+}
+
+function showAdoptModal(feedbackId) {
+    currentFeedbackId = feedbackId;
+    document.getElementById('adoptResult').classList.add('hidden');
+    document.getElementById('adoptConfirmBtn').classList.remove('hidden');
+    document.getElementById('adoptConfirmBtn').disabled = false;
+    // Fetch feedback details
+    fetch(API_BASE + '/feedback')
+        .then(r => r.json())
+        .then(data => {
+            const f = data.data.find(x => x.id === feedbackId);
+            if (f) {
+                document.getElementById('adoptFeedbackContent').innerHTML = `
+                    <p class="font-medium text-white mb-1">${f.email}</p>
+                    <p class="text-slate-400">${escapeHtml(f.content)}</p>
+                    <p class="text-slate-500 text-xs mt-1">User status: ${f.user_status || 'unknown'}</p>
+                `;
+            }
+        });
+    document.getElementById('adoptModal').classList.remove('hidden');
+}
+
+async function executeAdopt() {
+    if (!currentFeedbackId) return;
+    document.getElementById('adoptConfirmBtn').disabled = true;
+    document.getElementById('adoptConfirmBtn').textContent = 'Processing...';
+    try {
+        const data = await apiCall('/feedback/adopt', {
+            method: 'POST',
+            body: JSON.stringify({ feedback_id: currentFeedbackId, reward_days: 7 }),
+        });
+        // Show result
+        document.getElementById('adoptConfirmBtn').classList.add('hidden');
+        document.getElementById('adoptResult').classList.remove('hidden');
+        document.getElementById('adoptResultMsg').textContent = data.data.message;
+        document.getElementById('waMessage').value = data.wa_message;
+
+        // Set WA link
+        const waLink = document.getElementById('waSendLink');
+        const feedbacks = await (await fetch(API_BASE + '/feedback')).json();
+        const f = feedbacks.data.find(x => x.id === currentFeedbackId);
+        if (f && f.wa_number) {
+            waLink.href = `https://wa.me/${f.wa_number.replace('+','')}`;
+        } else {
+            waLink.href = `https://wa.me/`;
+        }
+
+        // Refresh feedback list and dashboard
+        await loadFeedback(currentFilter);
+        await loadDashboard();
+    } catch (e) {
+        showToast(e.detail || 'Adoption failed', 'error');
+        document.getElementById('adoptConfirmBtn').disabled = false;
+        document.getElementById('adoptConfirmBtn').textContent = 'Adopt & Reward 7 Days Pro';
+    }
+}
+
+function closeAdoptModal() {
+    document.getElementById('adoptModal').classList.add('hidden');
+    currentFeedbackId = null;
+}
+
+async function dismissFeedback(feedbackId) {
+    if (!confirm('Dismiss this feedback? No reward will be given.')) return;
+    try {
+        await apiCall('/feedback/dismiss', {
+            method: 'POST',
+            body: JSON.stringify({ feedback_id: feedbackId }),
+        });
+        await loadFeedback(currentFilter);
+        await loadDashboard();
+        showToast('Feedback dismissed', 'success');
+    } catch (e) {
+        showToast(e.detail || 'Failed', 'error');
+    }
+}
+
+function copyWAMessage() {
+    const textarea = document.getElementById('waMessage');
+    textarea.select();
+    document.execCommand('copy');
+    showToast('Copied to clipboard', 'success');
+}
+
+// ============ Utils ============
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showToast(msg, type) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg toast ${
+        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+    }`;
+    setTimeout(() => toast.classList.add('hidden'), 3000);
+}
+
+function logout() {
+    document.cookie = 'session_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    window.location.href = '/login';
+}
+
+// Auto refresh dashboard every 60s
+setInterval(() => {
+    if (!document.getElementById('mainContent').classList.contains('hidden')) {
+        loadDashboard();
+    }
+}, 60000);
+
+// Start
+init();
+</script>
+</body>
+</html>

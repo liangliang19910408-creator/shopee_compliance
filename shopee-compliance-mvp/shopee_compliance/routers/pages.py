@@ -1,6 +1,7 @@
 """
 页面路由 - 首页、结果页、登录页、仪表盘
 """
+import os
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -8,7 +9,9 @@ from fastapi.templating import Jinja2Templates
 from config import WA_LINK
 
 router = APIRouter(tags=["pages"])
-templates = Jinja2Templates(directory="templates")
+# 使用绝对路径指向 shopee_compliance/templates 目录
+_templates_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates")
+templates = Jinja2Templates(directory=_templates_dir)
 
 
 def no_cache_response(content: str) -> HTMLResponse:
@@ -23,8 +26,9 @@ def no_cache_response(content: str) -> HTMLResponse:
 @router.get("/", response_class=HTMLResponse)
 async def landing_page(request: Request):
     """Landing 首页"""
+    logged_in = bool(request.cookies.get("session_token"))
     template = templates.get_template("landing.html")
-    content = template.render({"request": request, "wa_link": WA_LINK})
+    content = template.render({"request": request, "wa_link": WA_LINK, "logged_in": logged_in})
     return no_cache_response(content)
 
 
@@ -42,8 +46,10 @@ async def scan_page(request: Request):
 @router.get("/result", response_class=HTMLResponse)
 async def result_page(request: Request):
     """结果页"""
+    # P1-4: 传递登录状态（用于控制注册引导横幅的显示）
+    logged_in = bool(request.cookies.get("session_token"))
     template = templates.get_template("result.html")
-    content = template.render({"request": request, "wa_link": WA_LINK})
+    content = template.render({"request": request, "wa_link": WA_LINK, "logged_in": logged_in})
     return no_cache_response(content)
 
 
@@ -105,5 +111,13 @@ async def terms_page(request: Request):
 async def success_page(request: Request):
     """支付成功页（轮询订阅状态）"""
     template = templates.get_template("success.html")
+    content = template.render({"request": request, "wa_link": WA_LINK})
+    return no_cache_response(content)
+
+
+@router.get("/admin", response_class=HTMLResponse)
+async def admin_page(request: Request):
+    """管理员控制台"""
+    template = templates.get_template("admin.html")
     content = template.render({"request": request, "wa_link": WA_LINK})
     return no_cache_response(content)

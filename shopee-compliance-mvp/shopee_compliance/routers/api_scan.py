@@ -31,16 +31,22 @@ from database import (
     get_db, create_trial, validate_trial, increment_scan_count, increment_scan_count_today, increment_scan_count_today_by_ip,
     get_trial_by_email, get_trial_by_token, upgrade_to_paid,
     create_login_token, validate_login_token,
-    save_scan_history, get_scan_history, get_safe_titles,
+    save_scan_history, get_scan_history, get_safe_titles, find_comparison_scan,
     create_scan_session, add_scan_result, update_scan_session,
     get_scan_sessions, get_scan_results, get_today_scan_count,
     report_false_positive, log_event, save_user_whitelist, get_user_whitelist,
-    check_wa_used, check_email_activated_trial, bind_wa_and_activate_trial
+    check_wa_used, check_email_activated_trial, bind_wa_and_activate_trial,
+    save_session_cache, get_session_cache, claim_session_cache, SESSION_CACHE_TTL_MINUTES,
+    get_platform_preference, get_user_preferences
 )
 from config import WHITELIST_PATH
-from auth import is_pro_user, get_trial_remaining_days
+from auth import is_pro_user, get_trial_remaining_days, get_effective_status, get_user_tier
 from services.scanner import run_scan, generate_safe_title, generate_safe_title_preview, calculate_score, run_hygiene_check
-from globals import URL_PARSE_LIMIT, URL_CACHE, SCAN_LIMIT
+from services.profit_calculator import calculate_profit, calculate_target_price
+from services.opportunity_scorer import calculate_opportunity_score
+from services.insight_generator import generate_insights
+from globals import URL_PARSE_LIMIT, URL_CACHE, SCAN_LIMIT, REGISTER_LIMIT, MYT, FREE_DAILY_SCAN_LIMIT, FREE_DAILY_URL_PARSE_LIMIT, REGISTER_IP_HOURLY_LIMIT, TEMP_EMAIL_DOMAINS
+from session_utils import generate_session_id, get_session_id, get_or_create_session_id, set_session_cookie, is_authenticated
 
 
 router = APIRouter(prefix="/api", tags=["api"])
@@ -417,12 +423,15 @@ async def scan_product(
     SCAN_LIMIT[client_ip] = ip_record
 
     client_ip = request.client.host
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.now(MYT).strftime("%Y-%m-%d")
     is_free_user = False
     scan_count_today = 0
 
     if not token:
         is_free_user = True
+        # P1-1: 获取或生成 PLG 会话ID（用于未登录用户的数据缓存和恢复）
+        plg_session_id = get_or_create_session_id(request)
+
         cursor = await db.execute("""
             SELECT * FROM trials WHERE ip_address = ? AND (email IS NULL OR email = '')
         """, (client_ip,))
@@ -450,7 +459,7 @@ async def scan_product(
                 await db.commit()
                 scan_count_today = 0
 
-        if scan_count_today >= 3:
+        if scan_count_today >= FREE_DAILY_SCAN_LIMIT:
             return ScanResponse(
                 success=False,
                 error="DAILY_LIMIT",
@@ -472,12 +481,15 @@ async def scan_product(
 
         user = result
         email = user["email"]
-        user_status = user["status"]
+        user_status = user.get("status", "free")
         trial_end = user.get("trial_end")
         paid_until = user.get("paid_until")
 
+        # P0-5: 实时 Trial 到期降级（不依赖定时任务）
+        user_status = get_effective_status(user)
+
         if user_status in ("free", "trial_expired"):
-            today = datetime.utcnow().strftime("%Y-%m-%d")
+            today_myt = datetime.now(MYT).strftime("%Y-%m-%d")
             cursor = await db.execute("""
                 SELECT COALESCE(scan_count_today, 0) as scan_count_today, last_scan_date FROM trials WHERE email = ?
             """, (email,))
@@ -489,14 +501,14 @@ async def scan_product(
                 scan_count_today = int(row_dict.get("scan_count_today", 0))
                 last_scan_date = row_dict.get("last_scan_date", "")
                 
-                if last_scan_date != today:
+                if last_scan_date != today_myt:
                     await db.execute("""
                         UPDATE trials SET scan_count_today = 0, last_scan_date = ? WHERE email = ?
-                    """, (today, email))
+                    """, (today_myt, email))
                     await db.commit()
                     scan_count_today = 0
             
-            if scan_count_today >= 3:
+            if scan_count_today >= FREE_DAILY_SCAN_LIMIT:
                 return ScanResponse(
                     success=False,
                     error="DAILY_LIMIT",
@@ -539,7 +551,11 @@ async def scan_product(
 
     title_to_scan = body.title
     desc_to_scan = body.description or ""
-    include_lazada = body.include_lazada
+    platform = body.platform or "shopee"
+
+    # Lazada 平台不支持 cashback，强制关闭
+    if platform == "lazada":
+        body.cashback_enabled = False
 
     shopee_parse = parse_shopee_url(body.title)
     if shopee_parse["is_shopee"]:
@@ -575,7 +591,7 @@ async def scan_product(
         pass
 
     # 执行扫描（带类目过滤和平台过滤）
-    violations, risk_level = run_scan(title_to_scan, desc_to_scan, product_category, include_lazada)
+    violations, risk_level = run_scan(title_to_scan, desc_to_scan, product_category, platform=platform)
 
     # 执行 Hygiene 检查（INFO级别，不影响评分）
     hygiene_issues = run_hygiene_check(body.title, body.description or "")
@@ -635,82 +651,198 @@ async def scan_product(
 
     # 保存扫描历史（无论免费付费）
     violations_dict = [v.model_dump() for v in violations]
+
+    # ============ IntelliAudit 2.0 Pro Phase 3.1: 历史对比 ============
+    # 在保存当前扫描前，查找可对比的历史扫描并计算 Jaccard 相似度
+    # 仅 Pro 用户启用，Free 用户 history_comparison 保持 None
+    history_comparison = None
+    if (is_paid or is_trial_active) and email and violations is not None:
+        try:
+            candidates = await find_comparison_scan(
+                db, email, body.title[:200],
+                item_id=body.item_id, shop_id=body.shop_id, limit=20,
+            )
+            if candidates:
+                current_words = {v.matched_word.lower() for v in violations if v.matched_word}
+                best = None
+                best_jaccard = -1.0
+                for c in candidates:
+                    try:
+                        prev_violations = json.loads(c.get("raw_result_json") or "[]")
+                    except (ValueError, TypeError):
+                        prev_violations = []
+                    prev_words = {
+                        (v.get("matched_word") or "").lower()
+                        for v in prev_violations if v.get("matched_word")
+                    }
+                    union = current_words | prev_words
+                    jaccard = (len(current_words & prev_words) / len(union)) if union else 1.0
+                    if jaccard > best_jaccard:
+                        best_jaccard = jaccard
+                        best = c
+                if best is not None:
+                    prev_words_set = {
+                        (v.get("matched_word") or "").lower()
+                        for v in (json.loads(best.get("raw_result_json") or "[]"))
+                        if v.get("matched_word")
+                    }
+                    added = sorted(current_words - prev_words_set)
+                    resolved = sorted(prev_words_set - current_words)
+                    history_comparison = {
+                        "previous_scan_time": best.get("scan_time"),
+                        "previous_score": best.get("score"),
+                        "previous_risk_level": best.get("risk_level"),
+                        "jaccard_similarity": round(best_jaccard, 3),
+                        "added_violations": added,      # 新增的违规词
+                        "resolved_violations": resolved, # 已解决的违规词
+                        "previous_title": (best.get("title_snippet") or "")[:120],
+                    }
+        except Exception as e:
+            print(f"[History Comparison] error: {e}")
+
     await save_scan_history(
         db, email, body.title[:200], risk_level.value if risk_level else 'SAFE',
-        score, json.dumps(violations_dict), 
+        score, json.dumps(violations_dict),
         source_type=body.source_type or 'text',
         generated_safe_title=safe_title_full,
         shop_id=body.shop_id,
-        item_id=body.item_id
+        item_id=body.item_id,
+        platform=platform
     )
 
-    # 毛利计算（独立计数限制）
+    # 利润计算 + 机会评分（Phase 1 新增）
+    # P0-4: 统一日配额 — 利润计算不再单独限制，只要扫描通过就计算
     gross_profit_rm = None
     margin_percent = None
     margin_level = None
-    can_calculate_margin = True
-    
-    if body.cost_rm and body.price_rm and body.cost_rm > 0 and body.price_rm > 0:
-        if not is_paid and not is_trial_active:
-            margin_count_today = 0
-            last_margin_date = ""
-            
-            if email:
-                cursor = await db.execute("""
-                    SELECT COALESCE(margin_count_today, 0) as margin_count_today, last_margin_date FROM trials WHERE email = ?
-                """, (email,))
-                row = await cursor.fetchone()
-                if row:
-                    row_dict = dict(row)
-                    margin_count_today = int(row_dict.get("margin_count_today", 0))
-                    last_margin_date = row_dict.get("last_margin_date", "")
-                    
-                    if last_margin_date != today:
-                        await db.execute("""
-                            UPDATE trials SET margin_count_today = 0, last_margin_date = ? WHERE email = ?
-                        """, (today, email))
-                        await db.commit()
-                        margin_count_today = 0
+    profit_analysis = None
+
+    # ============ IntelliAudit 2.0 Pro Phase 2.1: 货币/汇率偏好 ============
+    # 仅 Pro 用户：若配置了非 RM 货币 + locked_exchange_rate，将输入值转 RM（引擎不改）
+    # 同时支持 default_cost 兜底：用户未填成本时使用偏好中的默认成本
+    # 语义：locked_exchange_rate = "1 RM = X user_currency"，转 RM = 输入值 / rate
+    user_currency = "RM"
+    user_exchange_rate = None  # None 表示未转换
+    if (is_paid or is_trial_active) and email:
+        try:
+            user_prefs = await get_user_preferences(db, email)
+            g = user_prefs.get("global", {})
+            user_currency = g.get("default_currency") or "RM"
+            user_exchange_rate = g.get("locked_exchange_rate")
+
+            # default_cost 兜底：未填成本时使用默认成本（用户本币）
+            default_cost = g.get("default_cost")
+            if (body.cost_rm is None or body.cost_rm <= 0) and default_cost is not None:
+                body.cost_rm = float(default_cost)
+
+            # 货币转换：非 RM 且配置了汇率时，将输入值从用户本币转为 RM
+            if user_currency != "RM" and user_exchange_rate and float(user_exchange_rate) > 0:
+                rate = float(user_exchange_rate)
+                if body.cost_rm is not None:
+                    body.cost_rm = round(body.cost_rm / rate, 2)
+                if body.price_rm is not None:
+                    body.price_rm = round(body.price_rm / rate, 2)
+                if body.shipping_fee is not None:
+                    body.shipping_fee = round(body.shipping_fee / rate, 2)
+                if body.shipping_cost is not None:
+                    body.shipping_cost = round(body.shipping_cost / rate, 2)
             else:
-                cursor = await db.execute("""
-                    SELECT COALESCE(margin_count_today, 0) as margin_count_today, last_margin_date FROM trials WHERE ip_address = ? AND (email IS NULL OR email = '')
-                """, (client_ip,))
-                row = await cursor.fetchone()
-                if row:
-                    row_dict = dict(row)
-                    margin_count_today = int(row_dict.get("margin_count_today", 0))
-                    last_margin_date = row_dict.get("last_margin_date", "")
-                    
-                    if last_margin_date != today:
-                        await db.execute("""
-                            UPDATE trials SET margin_count_today = 0, last_margin_date = ? WHERE ip_address = ? AND (email IS NULL OR email = '')
-                        """, (today, client_ip))
-                        await db.commit()
-                        margin_count_today = 0
-            
-            if margin_count_today >= 3:
-                can_calculate_margin = False
-        
-        if can_calculate_margin:
-            gross_profit_rm = body.price_rm - body.cost_rm
-            margin_percent = (gross_profit_rm / body.price_rm) * 100
-            if margin_percent >= 50:
-                margin_level = "High Margin"
-            elif margin_percent >= 20:
-                margin_level = "Medium Margin"
+                # 未转换（已是 RM 或未配置汇率），exchange_rate 标记为 None
+                user_exchange_rate = None
+        except Exception as e:
+            print(f"[Currency Pref] load failed: {e}")
+            user_currency = "RM"
+            user_exchange_rate = None
+
+    opportunity_score = None
+    profit_result = None  # Phase 2: 洞察引擎需要
+    opp_score = None      # Phase 2: 洞察引擎需要
+    profit_alert_triggered = None  # IntelliAudit 2.0 Pro: 利润红线击穿标记
+
+    if body.cost_rm is not None and body.price_rm is not None and body.cost_rm > 0 and body.price_rm > 0:
+        # Phase 1: 使用费率引擎 + 利润计算器
+        print(f"[DEBUG] Starting profit calculation: cost_rm={body.cost_rm}, price_rm={body.price_rm}")
+        profit_result = calculate_profit(
+            selling_price=body.price_rm,
+            cost_price=body.cost_rm,
+            shipping_fee=body.shipping_fee or 0.0,
+            shipping_cost=body.shipping_cost or 0.0,
+            category=product_category,
+            seller_type=body.seller_type or "marketplace",
+            cashback_enabled=body.cashback_enabled if body.cashback_enabled is not None else True,
+            platform=platform,
+        )
+
+        if profit_result.calculated:
+            profit_analysis = profit_result.to_dict()
+            print(f"[DEBUG] Profit analysis calculated: net_profit={profit_analysis.get('profit', {}).get('net_profit')}, total_fees={profit_analysis.get('fee_breakdown', {}).get('total_fees')}")
+
+            # 兼容旧字段
+            gross_profit_rm = profit_result.gross_profit
+            margin_percent = profit_result.profit_margin
+            margin_level = profit_result.margin_level
+
+            # 机会评分
+            opp_score = calculate_opportunity_score(
+                profit_result=profit_result,
+                violations=violations,
+                risk_level=risk_level,
+                compliance_score=score,
+                title=body.title,
+                description=body.description or "",
+                category=product_category,
+            )
+            opportunity_score = opp_score.to_dict()
+
+            # ============ IntelliAudit 2.0 Pro: 利润红线击穿 ============
+            # 仅 Pro 用户（paid/trial）应用其配置的 min_profit_threshold
+            # 触发条件：net_profit < min_profit_threshold（绝对值 RM）
+            # 影响：机会评分强制 ≤40 + level=risky；Safe Title 降级；写埋点
+            # 合规评分 score/score_level 不变
+            if (is_paid or is_trial_active) and email:
+                try:
+                    pref = await get_platform_preference(db, email, platform)
+                    threshold = pref.get("min_profit_threshold")
+                    # 已被门控层拦截（比如亏损）的产品，不再走 threshold 二次惩罚，避免状态/文案冲突
+                    already_blocked = (not opp_score.gate_passed)
+                    if threshold is not None and not already_blocked and profit_result.net_profit < float(threshold):
+                        pre_threshold_score = opp_score.score  # 惩罚前分数
+                        # 强制机会评分 ≤40 + level=risky
+                        if opp_score.score > 40:
+                            opp_score.score = 40
+                        opp_score.score_level = "risky"
+                        # 同步更新 margin_penalty 标记，让 to_dict() 的 margin_penalty 字段与最终 score 一致
+                        opp_score.margin_penalty_applied = True
+                        opp_score.margin_penalty_cap = opp_score.score
+                        # 记录二次惩罚的完整链路到 details.margin_penalty（覆盖/追加 warning-level 的第一次惩罚记录）
+                        first_penalty = opp_score.details.get("margin_penalty") or {}
+                        opp_score.details["margin_penalty"] = {
+                            "original_score": first_penalty.get("original_score", pre_threshold_score),
+                            "intermediate_score": first_penalty.get("intermediate_score") if first_penalty.get("intermediate_score") is not None else pre_threshold_score,
+                            "capped_score": opp_score.score,
+                            "margin_level": "threshold",
+                            "source": "min_profit_threshold",
+                            "applied_cap": opp_score.score,
+                            "pre_threshold_score": pre_threshold_score,
+                            "reason": f"min_profit_threshold not met - score hard capped at {opp_score.score}",
+                        }
+                        opp_score.details["profit_alert"] = {
+                            "triggered": True,
+                            "net_profit": round(profit_result.net_profit, 2),
+                            "threshold": float(threshold),
+                            "pre_threshold_score": pre_threshold_score,
+                            "final_score": opp_score.score,
+                            "reason": f"净利润 RM {profit_result.net_profit:.2f} 未达最低利润目标 RM {float(threshold):.2f}，评分强制限制至 {opp_score.score}",
+                        }
+                        opportunity_score = opp_score.to_dict()
+                        profit_alert_triggered = True
+                    else:
+                        profit_alert_triggered = False
+                except Exception as e:
+                    print(f"[Profit Alert] check failed: {e}")
+                    profit_alert_triggered = False
             else:
-                margin_level = "Low Margin"
-            
-            if not is_paid and not is_trial_active:
-                if email:
-                    await db.execute("""
-                        UPDATE trials SET margin_count_today = COALESCE(margin_count_today, 0) + 1 WHERE email = ?
-                    """, (email,))
-                else:
-                    await db.execute("""
-                        UPDATE trials SET margin_count_today = COALESCE(margin_count_today, 0) + 1 WHERE ip_address = ? AND (email IS NULL OR email = '')
-                    """, (client_ip,))
-                await db.commit()
+                profit_alert_triggered = False
 
     # 写入新的 scan_sessions 和 scan_results（单条扫描）
     session_id = await create_scan_session(db, email, 'single')
@@ -771,6 +903,22 @@ async def scan_product(
     except Exception:
         pass
 
+    # 埋点：profit_alert_triggered（利润红线击穿）
+    if profit_alert_triggered:
+        try:
+            await log_event(db, "profit_alert_triggered", {
+                "email": email,
+                "platform": platform,
+                "net_profit": round(profit_result.net_profit, 2) if profit_result else None,
+                "opp_score_capped": opp_score.score if opp_score else None,
+            })
+        except Exception:
+            pass
+        # Safe Title 降级：Pro 用户本可解锁，红线击穿时降级为预览
+        if can_unlock_safe_title and safe_title_full:
+            safe_title_preview = generate_safe_title_preview(safe_title_full) if safe_title_full else None
+            safe_title_full = None
+
     if is_free_user or user_status in ("free", "trial_expired"):
         cursor = await db.execute("""
             SELECT COALESCE(scan_count_today, 0) as scan_count_today FROM trials WHERE email = ?
@@ -780,7 +928,111 @@ async def scan_product(
     else:
         scan_count_today = await get_today_scan_count(db, email)
 
-    return ScanResponse(
+    # ============ IntelliAudit 2.0: 洞察建议引擎 ============
+    is_pro = is_paid or is_trial_active
+    try:
+        insights = generate_insights(
+            compliance_score=score,
+            violations=violations,
+            risk_level=risk_level,
+            profit_result=profit_result,
+            opportunity_score=opp_score,
+            title=body.title,
+            cost_price=body.cost_rm or 0,
+            selling_price=body.price_rm or 0,
+            is_pro=is_pro,
+            platform=platform,
+        )
+        executive_summary = insights["executive_summary"]
+        dimension_tips = insights["dimension_tips"]
+    except Exception as e:
+        print(f"[Insight Generator Error] {e}")
+        executive_summary = None
+        dimension_tips = None
+
+    # ============ IntelliAudit 2.0: 顶部状态栏 risk_type 计算 ============
+    # 判定优先级：严重违规 → CRITICAL, 亏损 → CRITICAL, 轻微违规+盈利 → WARNING, 优质品 → EXCELLENT
+    has_severe_violation = (risk_level and risk_level.value == 'HIGH') or score < 60
+    net_profit_val = None
+    if profit_analysis and profit_analysis.get("profit"):
+        net_profit_val = profit_analysis["profit"].get("net_profit")
+    is_loss = net_profit_val is not None and net_profit_val < 0
+    has_violations = bool(filtered_violations)
+
+    if has_severe_violation or is_loss:
+        risk_type = "CRITICAL"
+    elif has_violations and not is_loss:
+        risk_type = "WARNING"
+    elif not has_violations and not is_loss and score >= 80:
+        risk_type = "EXCELLENT"
+    else:
+        risk_type = "WARNING"
+
+    # ============ IntelliAudit 2.0 Pro: 目标利润率反推售价 ============
+    # 仅 Pro 用户：根据其配置的 target_profit_margin 反推建议售价
+    # 注入 profit_analysis.target_price_info，供结果页"建议调价"卡片展示
+    if profit_analysis and (is_paid or is_trial_active) and email:
+        try:
+            pref = await get_platform_preference(db, email, platform)
+            target_margin = pref.get("target_profit_margin")
+            if target_margin is not None:
+                target_info = calculate_target_price(
+                    cost_price=body.cost_rm or 0.0,
+                    shipping_fee=body.shipping_fee or 0.0,
+                    shipping_cost=body.shipping_cost or 0.0,
+                    category=product_category,
+                    seller_type=body.seller_type or "marketplace",
+                    cashback_enabled=body.cashback_enabled if body.cashback_enabled is not None else True,
+                    platform=platform,
+                    target_margin=float(target_margin),
+                )
+                # 填入当前售价与差额
+                current_price = body.price_rm or 0.0
+                target_info["current_price"] = round(current_price, 2)
+                if target_info.get("target_price") is not None:
+                    target_info["delta"] = round(target_info["target_price"] - current_price, 2)
+                # 注入当前实际利润率，供前端三分支展示判断
+                target_info["current_margin"] = round(profit_result.profit_margin, 2)
+                profit_analysis["target_price_info"] = target_info
+        except Exception as e:
+            print(f"[Target Price] calc failed: {e}")
+
+    # ============ P0: 费用拆解数据隔离 ============
+    # 对非 Pro 用户隔离 fee_breakdown 明细，但保留 total_fees（黑盒钩子）
+    if profit_analysis and not is_pro:
+        print(f"[DEBUG] PROFIT_ANALYSIS_BEFORE_ISOLATION: {json.dumps(profit_analysis, indent=2, default=str)}")
+        fb = profit_analysis.get("fee_breakdown", {})
+        profit_section = profit_analysis.get("profit", {})
+        profit_analysis = {
+            **profit_analysis,
+            "fee_breakdown": {
+                "commission": None,
+                "commission_base": None,
+                "commission_sst": None,
+                "transaction_fee": None,
+                "service_fee": None,
+                "platform_fee": None,
+                "total_fees": fb.get("total_fees"),  # 保留总费用用于黑盒钩子
+                "is_locked": True,  # 标记为锁定状态
+            },
+            "profit": {
+                "gross_profit": profit_section.get("gross_profit"),
+                "net_profit": profit_section.get("net_profit"),
+                "profit_margin": profit_section.get("profit_margin"),
+                "break_even_price": None,  # 盈亏平衡价 Pro 专属
+                "roi": None,  # ROI Pro 专属
+            }
+        }
+        print(f"[DEBUG] PROFIT_ANALYSIS_AFTER_ISOLATION: {json.dumps(profit_analysis, indent=2, default=str)}")
+    elif profit_analysis:
+        print(f"[DEBUG] PROFIT_ANALYSIS_PRO_USER: {json.dumps(profit_analysis, indent=2, default=str)}")
+    else:
+        print("[DEBUG] PROFIT_ANALYSIS_IS_NONE - no profit data available")
+
+    # P1-2: 对未登录用户，将扫描结果缓存到 session_cache 并设置 Cookie
+    scan_timestamp_iso = datetime.utcnow().isoformat() if is_free_user else None
+
+    scan_response = ScanResponse(
         success=True,
         risk_level=risk_level,
         violations=filtered_violations,
@@ -804,8 +1056,172 @@ async def scan_product(
         gross_profit_rm=gross_profit_rm,
         margin_percent=margin_percent,
         margin_level=margin_level,
-        hidden_violations_info=hidden_violations_info
+        hidden_violations_info=hidden_violations_info,
+        profit_analysis=profit_analysis,
+        opportunity_score=opportunity_score,
+        executive_summary=executive_summary,
+        dimension_tips=dimension_tips,
+        is_pro=is_pro,
+        scan_timestamp=scan_timestamp_iso,
+        session_expires_in=SESSION_CACHE_TTL_MINUTES if is_free_user else None,
+        risk_type=risk_type,
+        profit_alert_triggered=profit_alert_triggered if profit_alert_triggered else None,
+        currency=user_currency if user_currency != "RM" else None,
+        exchange_rate=user_exchange_rate,
+        history_comparison=history_comparison,
     )
+
+    if is_free_user and plg_session_id:
+        # P1-2: 缓存扫描结果到 session_cache（支持刷新恢复和数据认领）
+        try:
+            scan_data_json = scan_response.model_dump_json()
+            await save_session_cache(
+                db=db,
+                session_id=plg_session_id,
+                scan_data=scan_data_json,
+                scan_timestamp=scan_timestamp_iso,
+                source_type=body.source_type or 'text',
+                title_snippet=body.title[:200],
+                risk_level=risk_level.value if risk_level else 'SAFE',
+                score=score,
+                ip_address=client_ip,
+                platform=platform
+            )
+        except Exception as e:
+            print(f"[P1-2 Session Cache Save Error] {e}")
+
+        # P1-1: 设置 plg_session_id Cookie（非 HttpOnly，前端需要读取用于数据认领跳转）
+        from fastapi.responses import JSONResponse
+        response = JSONResponse(scan_response.model_dump(mode='json'))
+        set_session_cookie(response, plg_session_id)
+        return response
+
+    return scan_response
+
+
+# ============ P1-3: GET /api/session/recover — 会话恢复接口 ============
+
+@router.get("/session/recover")
+async def recover_session(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db)
+):
+    """
+    P1-3: 会话恢复接口 — 未登录用户刷新页面后恢复扫描结果
+    - 从 Cookie 读取 plg_session_id
+    - 查询 session_cache 表获取缓存的扫描数据
+    - 返回扫描数据 + 剩余有效时间
+    - 如果已登录或无会话，返回 success=false
+    """
+    # 已登录用户不需要会话恢复
+    if is_authenticated(request):
+        return {"success": False, "reason": "authenticated"}
+
+    session_id = get_session_id(request)
+    if not session_id:
+        return {"success": False, "reason": "no_session"}
+
+    cached = await get_session_cache(db, session_id)
+    if not cached:
+        return {"success": False, "reason": "expired_or_not_found"}
+
+    try:
+        scan_data = json.loads(cached["scan_data"])
+    except (json.JSONDecodeError, KeyError):
+        return {"success": False, "reason": "data_corrupted"}
+
+    return {
+        "success": True,
+        "data": scan_data,
+        "scan_timestamp": cached.get("scan_timestamp"),
+        "expires_in_minutes": cached.get("expires_in_minutes", 0),
+        "source_type": cached.get("source_type", "text"),
+        "title_snippet": cached.get("title_snippet", "")
+    }
+
+
+# ============ P2-1: POST /api/session/claim — 数据认领接口 ============
+
+class ClaimRequest(BaseModel):
+    session_id: str
+
+
+@router.post("/session/claim")
+async def claim_session(
+    body: ClaimRequest,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db)
+):
+    """
+    P2-1: 数据认领接口 — 注册用户认领未登录会话的扫描数据
+    - 幂等设计：重复认领返回成功但不重复操作
+    - 并发安全：UPDATE ... WHERE claimed_by IS NULL 确保只认领一次
+    - 认领后将数据写入用户的 scan_history
+    - 需要登录（session_token Cookie）
+    """
+    # 验证登录状态
+    token = request.cookies.get("session_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not logged in")
+
+    is_valid, result = await validate_trial(db, token)
+    if not is_valid:
+        raise HTTPException(status_code=401, detail="Session expired")
+
+    user = result
+    email = user["email"]
+
+    # 执行认领
+    claim_result = await claim_session_cache(db, body.session_id, email)
+
+    if not claim_result:
+        return {
+            "success": False,
+            "reason": "session_not_found_or_expired",
+            "message": "No data to claim or session has expired."
+        }
+
+    cached_data = claim_result.get("data", {})
+    already_claimed = claim_result.get("already_claimed", False)
+
+    # 将认领的扫描数据写入用户的 scan_history（仅首次认领时）
+    if not already_claimed:
+        try:
+            scan_data_json = cached_data.get("scan_data", "{}")
+            scan_data = json.loads(scan_data_json) if isinstance(scan_data_json, str) else scan_data_json
+
+            risk_level = cached_data.get("risk_level", "SAFE")
+            score = cached_data.get("score", 100)
+            title_snippet = cached_data.get("title_snippet", "")
+            source_type = cached_data.get("source_type", "text")
+
+            await save_scan_history(
+                db, email, title_snippet, risk_level, score,
+                scan_data_json, source_type=source_type
+            )
+            await db.commit()
+
+            # 埋点：data_claimed
+            try:
+                await log_event(db, "data_claimed", {
+                    "email": email,
+                    "session_id": body.session_id,
+                    "source_type": source_type
+                })
+            except Exception:
+                pass
+        except Exception as e:
+            print(f"[P2-1 Claim History Save Error] {e}")
+
+    return {
+        "success": True,
+        "already_claimed": already_claimed,
+        "message": "Data claimed successfully!" if not already_claimed else "Data already claimed.",
+        "title_snippet": cached_data.get("title_snippet", ""),
+        "risk_level": cached_data.get("risk_level"),
+        "score": cached_data.get("score", 100),
+        "scan_timestamp": cached_data.get("scan_timestamp")
+    }
 
 
 # ============ POST /api/scan-batch ============
@@ -1506,12 +1922,46 @@ async def user_info(
     from fastapi.responses import JSONResponse
     
     session_token = request.cookies.get("session_token")
+    today = datetime.now(MYT).strftime("%Y-%m-%d")
+    client_ip = request.client.host if request.client else "127.0.0.1"
+
+    async def fetch_scan_count_by_email(email):
+        cursor = await db.execute(
+            "SELECT COALESCE(scan_count_today, 0) as scan_count_today, last_scan_date FROM trials WHERE email = ?",
+            (email,)
+        )
+        row = await cursor.fetchone()
+        if row:
+            row_dict = dict(row)
+            count = int(row_dict.get("scan_count_today", 0))
+            if row_dict.get("last_scan_date") != today:
+                count = 0
+            return count
+        return 0
+
+    async def fetch_scan_count_by_ip(ip):
+        cursor = await db.execute(
+            "SELECT COALESCE(scan_count_today, 0) as scan_count_today, last_scan_date FROM trials WHERE ip_address = ? AND (email IS NULL OR email = '')",
+            (ip,)
+        )
+        row = await cursor.fetchone()
+        if row:
+            row_dict = dict(row)
+            count = int(row_dict.get("scan_count_today", 0))
+            if row_dict.get("last_scan_date") != today:
+                count = 0
+            return count
+        return 0
     
     if not session_token:
+        # 未登录：基于 IP 获取扫描次数
+        scan_count_today = await fetch_scan_count_by_ip(client_ip)
         response = JSONResponse({
             "logged_in": False,
             "email": None,
-            "status": None
+            "status": None,
+            "scan_count_today": scan_count_today,
+            "scan_limit": FREE_DAILY_SCAN_LIMIT
         })
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return response
@@ -1525,6 +1975,8 @@ async def user_info(
                 email = user["email"]
                 user_data = await get_trial_by_email(db, email)
                 if user_data:
+                    is_pro_flag = is_pro_user(user_data)
+                    scan_count_today = 0 if is_pro_flag else await fetch_scan_count_by_email(email)
                     response = JSONResponse({
                         "logged_in": True,
                         "email": user_data["email"],
@@ -1532,21 +1984,30 @@ async def user_info(
                         "plan_type": user_data.get("plan_type"),
                         "paid_until": user_data.get("paid_until"),
                         "trial_end": user_data.get("trial_end"),
-                        "is_pro": is_pro_user(user_data),
-                        "trial_remaining_days": get_trial_remaining_days(user_data)
+                        "is_pro": is_pro_flag,
+                        "trial_remaining_days": get_trial_remaining_days(user_data),
+                        "scan_count_today": scan_count_today,
+                        "scan_limit": None if is_pro_flag else FREE_DAILY_SCAN_LIMIT
                     })
                     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                     return response
         
+        # Token 无效，回退到基于 IP 的未登录状态
+        scan_count_today = await fetch_scan_count_by_ip(client_ip)
         response = JSONResponse({
             "logged_in": False,
             "email": None,
-            "status": None
+            "status": None,
+            "scan_count_today": scan_count_today,
+            "scan_limit": FREE_DAILY_SCAN_LIMIT
         })
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return response
 
     user = result
+    is_pro_flag = is_pro_user(user)
+    scan_count_today = 0 if is_pro_flag else await fetch_scan_count_by_email(user["email"])
+    
     response = JSONResponse({
         "logged_in": True,
         "email": user["email"],
@@ -1554,8 +2015,10 @@ async def user_info(
         "plan_type": user.get("plan_type"),
         "paid_until": user.get("paid_until"),
         "trial_end": user.get("trial_end"),
-        "is_pro": is_pro_user(user),
-        "trial_remaining_days": get_trial_remaining_days(user)
+        "is_pro": is_pro_flag,
+        "trial_remaining_days": get_trial_remaining_days(user),
+        "scan_count_today": scan_count_today,
+        "scan_limit": None if is_pro_flag else FREE_DAILY_SCAN_LIMIT
     })
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return response
@@ -1764,14 +2227,20 @@ async def run_reactivation(
 @router.post("/auth/register")
 async def register(
     body: RegisterRequest,
+    request: Request,
     db: aiosqlite.Connection = Depends(get_db)
 ):
     """
-    注册接口
+    注册接口（IntelliAudit 2.0: 注册即激活 Trial 14天）
     - 校验邮箱格式和密码强度（≥8位，含字母+数字）
-    - 如果邮箱已存在，返回 409
-    - 创建新用户，设置密码哈希，生成 trial_token
+    - 校验 WA 号格式（E.164，马来号 +60 开头）
+    - 检查邮箱域名黑名单（防临时邮箱）
+    - 检查 IP 限流（同 IP 每小时 ≤ 3 次）
+    - 利用 UNIQUE 约束防止并发注册冲突
+    - 如提供 WA 号：注册即激活 Trial(14天)
+    - 如不提供 WA 号：注册为 Free 用户（向后兼容）
     """
+    # 1. 密码强度校验
     password_pattern = re.compile(r'^(?=.*[A-Za-z])(?=.*\d).{8,}$')
     if not password_pattern.match(body.password):
         raise HTTPException(
@@ -1779,34 +2248,103 @@ async def register(
             detail="Password must be at least 8 characters and contain both letters and numbers"
         )
 
-    existing_user = await get_trial_by_email(db, body.email)
-    if existing_user:
+    # 2. 临时邮箱黑名单检查
+    email_domain = body.email.split("@")[-1].lower() if "@" in body.email else ""
+    if any(email_domain.endswith(d) for d in TEMP_EMAIL_DOMAINS):
         raise HTTPException(
-            status_code=409,
-            detail="Email already registered"
+            status_code=400,
+            detail="Please use a real email address. Disposable email domains are not allowed."
         )
 
+    # 3. WA 号校验 + 清洗（V1.0 必填）
+    cleaned_wa = re.sub(r'[\s\-()]', '', body.wa_number.strip())
+    wa_pattern = re.compile(r'^\+60\d{9,11}$')
+    if not wa_pattern.match(cleaned_wa):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid WhatsApp number format. Please use format like +60123456789 (Malaysian numbers only)"
+        )
+    wa_number = cleaned_wa
+
+    # 4. IP 注册限流（同 IP 每小时 ≤ 3 次）
+    client_ip = request.client.host
+    current_hour = datetime.utcnow().strftime("%Y-%m-%d %H")
+    ip_reg = REGISTER_LIMIT.get(client_ip, {})
+    if ip_reg.get("hour") == current_hour:
+        if ip_reg.get("count", 0) >= REGISTER_IP_HOURLY_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many registration attempts. Please try again later."
+            )
+    else:
+        ip_reg = {"hour": current_hour, "count": 0}
+    ip_reg["count"] += 1
+    REGISTER_LIMIT[client_ip] = ip_reg
+
+    # 5. 密码哈希
     password_hash = bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt(rounds=12)).decode('utf-8')
 
     trial_token = str(uuid.uuid4())
     now = datetime.utcnow()
-    trial_end = now  # free 用户试用未激活，trial_end 设为当前时间
 
-    await db.execute("""
-        INSERT INTO trials (
-            email, password_hash, trial_token, trial_start, trial_end,
-            scan_count, status, trial_status, subscription_status,
-            url_parse_count_today, scan_count_today
-        ) VALUES (?, ?, ?, ?, ?, 0, 'free', 'inactive', 'inactive', 0, 0)
-    """, (body.email, password_hash, trial_token, now.isoformat(), trial_end.isoformat()))
-    await db.commit()
+    # 注册即激活 Trial（14天）
+    trial_end = now + timedelta(days=14)
+    status = "trial"
+    trial_status = "active"
+    trial_activated_at = now.isoformat()
+    trial_activated_wa = wa_number
+    message = "Registration successful! Your 14-day Pro trial is now active."
+
+    # 6. 创建用户（利用 UNIQUE 约束防止并发冲突）
+    today_myt = datetime.now(MYT).strftime("%Y-%m-%d")
+    try:
+        await db.execute("""
+            INSERT INTO trials (
+                email, password_hash, trial_token, trial_start, trial_end,
+                wa_number, scan_count, status, trial_status, subscription_status,
+                url_parse_count_today, scan_count_today, last_scan_date,
+                trial_activated_at, trial_activated_wa, registered_ip
+            ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'inactive', 0, 0, ?, ?, ?, ?)
+        """, (
+            body.email, password_hash, trial_token,
+            now.isoformat(), trial_end.isoformat(),
+            wa_number,
+            status, trial_status,
+            today_myt,
+            trial_activated_at, trial_activated_wa,
+            client_ip
+        ))
+        await db.commit()
+    except aiosqlite.IntegrityError:
+        # 捕获唯一约束冲突（email PK 或 wa_number 唯一索引）
+        existing = await get_trial_by_email(db, body.email)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="Email already registered"
+            )
+        # WA 号唯一索引冲突：返回 code=WA_EXISTS 供前端识别
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=409,
+            content={
+                "code": "WA_EXISTS",
+                "message": "This WhatsApp number has already been used."
+            }
+        )
 
     from fastapi.responses import JSONResponse
     response = JSONResponse({
         "success": True,
         "email": body.email,
         "trial_token": trial_token,
-        "message": "Registration successful. Bind WhatsApp to activate 7-day Pro trial."
+        "status": status,
+        "trial_status": trial_status,
+        "is_trial": True,
+        "trial_end": trial_end.isoformat(),
+        "trial_remaining_days": 14,
+        "wa_number": wa_number,
+        "message": message
     })
     response.set_cookie(
         key="session_token",

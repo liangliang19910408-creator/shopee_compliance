@@ -21,10 +21,14 @@ from database import (
     get_scan_session
 )
 from services.scanner import run_scan, calculate_score
-from auth import is_pro_user
+from auth import is_pro_user, get_user_tier, get_effective_status
 from config import WHITELIST_PATH
 
 router = APIRouter(prefix="/api/batch", tags=["batch"])
+
+# 批量预审分层限制
+BATCH_LIMIT_FREE = 3       # Free 用户最多 3 条
+BATCH_LIMIT_PRO = 100      # Trial / Pro 用户最多 100 条
 
 
 async def get_current_user(request: Request):
@@ -91,7 +95,7 @@ async def process_batch_job(job_id: int, email: str, session_id: int):
                 title=title_to_scan,
                 description="",
                 product_category=item.get("category", "general"),
-                include_lazada=False
+                platform="shopee"
             )
             
             score = calculate_score(violations)
@@ -190,15 +194,15 @@ async def upload_csv(
             detail="Session expired or invalid"
         )
     
-    status = user_data.get("status", "")
-    print(f"[BATCH UPLOAD] User status: {status}")
+    # 使用统一层级判断（实时处理 Trial 过期降级）
+    tier = get_user_tier(user_data)
+    print(f"[BATCH UPLOAD] User tier: {tier}, effective_status: {get_effective_status(user_data)}")
     
-    if status not in ("trial", "paid"):
-        print(f"[BATCH UPLOAD ERROR] User status {status} not allowed")
-        raise HTTPException(
-            status_code=403,
-            detail={"error": "Pro required", "upgrade": True}
-        )
+    # 根据层级确定批量扫描上限
+    if tier == "free":
+        batch_limit = BATCH_LIMIT_FREE
+    else:
+        batch_limit = BATCH_LIMIT_PRO
 
     if not file.filename.endswith('.csv'):
         print(f"[BATCH UPLOAD ERROR] File not CSV: {file.filename}")
@@ -246,11 +250,12 @@ async def upload_csv(
                 'price_rm': price_rm
             })
 
-        if len(items) > 200:
-            print(f"[BATCH UPLOAD ERROR] Too many items: {len(items)}")
+        if len(items) > batch_limit:
+            print(f"[BATCH UPLOAD ERROR] Too many items: {len(items)} > {batch_limit} (tier={tier})")
             raise HTTPException(
                 status_code=400,
-                detail="Maximum 200 rows allowed"
+                detail={"error": "batch_limit_exceeded", "max": batch_limit, "tier": tier,
+                        "message": f"Maximum {batch_limit} rows allowed for {tier} users"}
             )
 
         if len(items) == 0:
@@ -272,7 +277,8 @@ async def upload_csv(
         import asyncio
         asyncio.create_task(process_batch_job(job_id, email, session_id))
 
-        return {"success": True, "job_id": job_id, "total_items": len(items)}
+        return {"success": True, "job_id": job_id, "total_items": len(items),
+                "tier": tier, "batch_limit": batch_limit}
 
     except HTTPException:
         raise

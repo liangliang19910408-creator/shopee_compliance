@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seller Compliance Dashboard</title>
+    <title>Seller Dashboard - Compliance MY | Pre-Audit & Profit Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -13,7 +13,7 @@
         .card { background: #1f2937; border: 1px solid rgba(255,255,255,0.08); } /* gray-800 */
         .card-hover:hover { background: #374151; } /* gray-700 */
         .tab-active {
-            border-left: 3px solid #8b5cf6;
+            border-left: 3px solid #EE4D2D;
             background: #1E293B;
             color: #fff;
             border-radius: 6px;
@@ -27,6 +27,52 @@
             color: #cbd5e1;
             background: rgba(255,255,255,0.05);
         }
+        /* Phase 4.2: 配置中心板块 hover benefit tooltip */
+        .cfg-benefit-tip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: help;
+            color: #f59e0b;
+            font-size: 12px;
+        }
+        .cfg-benefit-tip:hover .cfg-benefit-pop {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .cfg-benefit-pop {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translate(-50%, 4px);
+            transform: translateX(-50%) translateY(4px);
+            background: #0f172a;
+            color: #fbbf24;
+            border: 1px solid rgba(245,158,11,0.35);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s, transform 0.15s;
+            z-index: 30;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .cfg-section-locked {
+            position: relative;
+        }
+        .cfg-section-locked::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(15,23,42,0.35);
+            border-radius: 12px;
+            pointer-events: none;
+        }
         .badge-high { background: rgba(239,68,68,0.20); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
         .badge-low { background: rgba(34,197,94,0.20); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
         .badge-medium { background: rgba(245,158,11,0.15); color: #f59e0b; }
@@ -39,7 +85,7 @@
         .violation-card-high { background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; }
         .violation-card-medium { background: rgba(245, 158, 11, 0.08); border-left: 4px solid #f59e0b; }
         .violation-card-low { background: rgba(34, 197, 94, 0.08); border-left: 4px solid #22c55e; }
-        .action-highlight { color: #6366f1; font-weight: 600; }
+        .action-highlight { color: #EE4D2D; font-weight: 600; }
         .toast {
             position: fixed;
             top: 20px;
@@ -67,11 +113,11 @@
     <div class="border-b border-white/5 bg-gray-900">
         <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
             <div class="flex items-center gap-4">
-                <a href="/" class="text-indigo-400 hover:text-indigo-300 text-sm font-medium flex items-center gap-1">
+                <a href="/" class="text-orange-400 hover:text-orange-300 text-sm font-medium flex items-center gap-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                     <span data-i18n="dashboard.back_home">Home</span>
                 </a>
-                <h1 data-i18n="dashboard.title" class="text-white font-bold text-lg">Seller Compliance Dashboard</h1>
+                <h1 data-i18n="dashboard.title" class="text-white font-bold text-lg">Seller Dashboard</h1>
             </div>
             <div class="flex items-center gap-3">
                 <span id="userEmail" class="text-slate-400 text-xs hidden sm:block"></span>
@@ -95,7 +141,7 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                 <span data-i18n="dashboard.main_tab.batch">Batch Scan</span>
             </button>
-            <a href="/pricing/pay" class="flex-1 px-4 py-2.5 text-sm font-medium tab-inactive flex items-center justify-center gap-2 hover:bg-gray-700/50 rounded-lg transition">
+            <a href="#" onclick="handleUpgradeFromDashboard('main_tab_pricing'); return false;" class="flex-1 px-4 py-2.5 text-sm font-medium tab-inactive flex items-center justify-center gap-2 hover:bg-gray-700/50 rounded-lg transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 <span data-i18n="dashboard.main_tab.pricing">Pricing</span>
             </a>
@@ -116,7 +162,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <a id="bannerWaActivate" href="#" onclick="openBindWaModal()" class="text-green-400 hover:text-green-300 font-medium hidden">绑定 WA 激活试用 →</a>
-                <a id="bannerUpgradeLink" href="#" onclick="handleUpgradeFromDashboard('banner')" class="text-indigo-400 hover:text-indigo-300 font-medium hidden">升级 Pro →</a>
+                <a id="bannerUpgradeLink" href="#" onclick="handleUpgradeFromDashboard('banner'); return false;" class="text-orange-400 hover:text-orange-300 font-medium hidden">升级 Pro →</a>
             </div>
         </div>
 
@@ -127,6 +173,9 @@
                 <button onclick="switchTab('history')" id="tab-history" class="flex-1 px-4 py-2 text-sm font-medium tab-active" data-i18n="dashboard.tab.history">Detection History</button>
                 <button onclick="switchTab('whitelist')" id="tab-whitelist" class="flex-1 px-4 py-2 text-sm font-medium tab-inactive" data-i18n="dashboard.tab.whitelist">Whitelist</button>
                 <button onclick="switchTab('account')" id="tab-account" class="flex-1 px-4 py-2 text-sm font-medium tab-inactive" data-i18n="dashboard.tab.account">Account</button>
+                <button onclick="switchTab('config')" id="tab-config" class="flex-1 px-4 py-2 text-sm font-medium tab-inactive flex items-center justify-center gap-1.5" data-i18n="dashboard.tab.config">
+                    <span>⚙</span><span>Pro Config</span>
+                </button>
             </div>
 
         <!-- Tab 1: Detection History -->
@@ -138,7 +187,7 @@
                     <span id="historyCount" class="text-slate-500 text-xs"></span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="exportHistory()" id="exportHistoryBtn" class="hidden px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+                    <button onclick="exportHistory()" id="exportHistoryBtn" class="hidden px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         <span data-i18n="dashboard.export_csv">Export CSV</span>
                     </button>
@@ -150,7 +199,7 @@
                     <p class="text-amber-300 text-sm font-medium">
                         <span data-i18n="dashboard.free_limit_bar">⚠️ Free Plan: Max 5 records. Upgrade to Pro for unlimited history.</span>
                     </p>
-                    <a href="#" onclick="handleUpgradeFromDashboard('free_limit_banner')" class="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-semibold transition" data-i18n="dashboard.upgrade_short">Upgrade</a>
+                    <a href="#" onclick="handleUpgradeFromDashboard('free_limit_banner'); return false;" class="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-semibold transition" data-i18n="dashboard.upgrade_short">Upgrade</a>
                 </div>
             </div>
             <!-- History List -->
@@ -166,7 +215,7 @@
             <!-- Header -->
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-white font-semibold text-lg" data-i18n="dashboard.tab.whitelist">Whitelist</h2>
-                <button onclick="openAddTermModal()" id="addTermBtn" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5">
+                <button onclick="openAddTermModal()" id="addTermBtn" class="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                     <span data-i18n="dashboard.add_term">Add Term</span>
                 </button>
@@ -216,23 +265,15 @@
                     </div>
                 </div>
 
-                <!-- WA Activate CTA -->
-                <div id="waActivateCTA" class="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/30 hidden">
-                    <p class="text-sm text-green-300 mb-2" data-i18n="dashboard.wa_activate_hint">Bind WhatsApp to activate 7-day free trial and unlock Pro features.</p>
-                    <button onclick="openBindWaModal()" class="inline-flex items-center justify-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition" data-i18n="dashboard.wa_activate_btn">
-                        Bind WhatsApp Now
-                    </button>
-                </div>
-
                 <!-- Upgrade CTA -->
-                <div id="upgradeCTA" class="mb-6 p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/30">
-                    <p class="text-sm text-indigo-300 mb-2" data-i18n="dashboard.upgrade_hint">Unlock batch processing, unlimited scans, and advanced filters.</p>
-                    <div class="flex flex-wrap gap-2 mb-3 text-xs text-indigo-200">
-                        <span>🎁 7天免费试用</span>
-                        <span>💰 RM29/月</span>
+                <div id="upgradeCTA" class="mb-6 p-4 rounded-lg bg-orange-500/10 border border-orange-500/30">
+                    <p class="text-sm text-orange-300 mb-2" data-i18n="dashboard.upgrade_hint">Unlock batch processing, unlimited scans, and advanced filters.</p>
+                    <div class="flex flex-wrap gap-2 mb-3 text-xs text-orange-200">
+                        <span>🎁 14天免费试用</span>
+                        <span>💰 RM59/月</span>
                         <span>✓ 随时取消</span>
                     </div>
-                    <a href="#" onclick="handleUpgradeFromDashboard('upgrade_cta')" class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition" data-i18n="dashboard.upgrade_btn">
+                    <a href="#" onclick="handleUpgradeFromDashboard('upgrade_cta'); return false;" class="inline-flex items-center justify-center px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-semibold transition" data-i18n="dashboard.upgrade_btn">
                         Upgrade to Pro Now
                     </a>
                 </div>
@@ -244,42 +285,230 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tab 4: Pro Config Center (Phase 4.1) -->
+        <div id="panel-config" class="hidden">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <!-- Header -->
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-white font-semibold text-lg flex items-center gap-1.5">
+                            <span>⚙</span>
+                            <span data-i18n="dashboard.config.title">Pro Config Center</span>
+                        </h2>
+                        <span id="configProBadge" class="hidden text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold">PRO</span>
+                    </div>
+                    <div id="configFreeHint" class="hidden p-2 px-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+                        <p class="text-xs text-purple-300" data-i18n="dashboard.config.free_hint">⚙️ Config Center is a Pro feature. Upgrade to customize platform fees, profit targets, currency, and suppliers.</p>
+                    </div>
+                </div>
+
+                <!-- Section (a): Platform Fee Defaults -->
+                <div class="card rounded-xl p-5 cfg-section-locked" id="configSectionPlatform">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-white font-semibold flex items-center gap-1.5">
+                                <span>🚚</span>
+                                <span data-i18n="dashboard.config.section_platform">Platform Fee Defaults</span>
+                                <span class="cfg-benefit-tip" data-i18n-title="dashboard.config.benefit_platform" title="⏱ Saves ~30s per scan by auto-filling fees">
+                                    <span>💡</span>
+                                    <span class="cfg-benefit-pop" data-i18n="dashboard.config.benefit_platform">⏱ Saves ~30s per scan by auto-filling fees</span>
+                                </span>
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-1" data-i18n="dashboard.config.section_platform_hint">Pre-fill shipping fee, cost, category, cashback, and seller type on the scan page.</p>
+                        </div>
+                        <!-- Platform switch -->
+                        <div class="flex gap-1 bg-gray-800/50 rounded-lg p-1">
+                            <button onclick="switchConfigPlatform('shopee')" id="cfgPlatformShopee" class="px-3 py-1 text-xs font-medium bg-orange-600 text-white rounded-md">Shopee</button>
+                            <button onclick="switchConfigPlatform('lazada')" id="cfgPlatformLazada" class="px-3 py-1 text-xs font-medium text-slate-400 rounded-md">Lazada</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.shipping_fee">Shipping Fee (RM)</label>
+                            <input type="number" step="0.01" min="0" id="cfg_shipping_fee" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 5.00">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.shipping_cost">Shipping Cost (RM)</label>
+                            <input type="number" step="0.01" min="0" id="cfg_shipping_cost" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 2.50">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.default_category">Default Category</label>
+                            <select id="cfg_default_category" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500">
+                                <option value="general">General</option>
+                                <option value="electronics">Electronics</option>
+                                <option value="fashion">Fashion</option>
+                                <option value="beauty">Beauty</option>
+                                <option value="home">Home</option>
+                                <option value="health">Health</option>
+                                <option value="baby">Baby</option>
+                                <option value="sports">Sports</option>
+                                <option value="food">Food</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.seller_type">Seller Type</label>
+                            <select id="cfg_seller_type" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500">
+                                <option value="marketplace">Marketplace</option>
+                                <option value="mall">Mall</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2 sm:col-span-2">
+                            <input type="checkbox" id="cfg_cashback" class="w-4 h-4 accent-orange-600">
+                            <label for="cfg_cashback" class="text-sm text-slate-300" data-i18n="dashboard.config.cashback">Enable Cashback (Shopee only)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section (b): Profit Targets -->
+                <div class="card rounded-xl p-5 cfg-section-locked" id="configSectionProfit">
+                    <div class="mb-4">
+                        <h3 class="text-white font-semibold flex items-center gap-1.5">
+                            <span>🎯</span>
+                            <span data-i18n="dashboard.config.section_profit">Profit Targets</span>
+                            <span class="cfg-benefit-tip" data-i18n-title="dashboard.config.benefit_profit" title="🛡 Avoids underpricing by enforcing target margin">
+                                <span>💡</span>
+                                <span class="cfg-benefit-pop" data-i18n="dashboard.config.benefit_profit">🛡 Avoids underpricing by enforcing target margin</span>
+                            </span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-1" data-i18n="dashboard.config.section_profit_hint">Set target margin and minimum profit threshold for the profit analysis.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.target_profit_margin">Target Profit Margin (%)</label>
+                            <input type="number" step="0.1" min="0" max="100" id="cfg_target_profit_margin" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 20">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.min_profit_threshold">Min Profit Threshold (RM)</label>
+                            <input type="number" step="0.01" min="0" id="cfg_min_profit_threshold" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 2.00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section (c): Currency / Exchange Rate -->
+                <div class="card rounded-xl p-5 cfg-section-locked" id="configSectionCurrency">
+                    <div class="mb-4">
+                        <h3 class="text-white font-semibold flex items-center gap-1.5">
+                            <span>💱</span>
+                            <span data-i18n="dashboard.config.section_currency">Currency / Exchange Rate</span>
+                            <span class="cfg-benefit-tip" data-i18n-title="dashboard.config.benefit_currency" title="🛡 Locks FX rate to avoid profit misjudgment">
+                                <span>💡</span>
+                                <span class="cfg-benefit-pop" data-i18n="dashboard.config.benefit_currency">🛡 Locks FX rate to avoid profit misjudgment</span>
+                            </span>
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-1" data-i18n="dashboard.config.section_currency_hint">Display profit analysis in your preferred currency. Lock the exchange rate to avoid fluctuation.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.default_currency">Display Currency</label>
+                            <select id="cfg_default_currency" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500">
+                                <option value="RM">RM (Malaysian Ringgit)</option>
+                                <option value="CNY">CNY (Chinese Yuan)</option>
+                                <option value="USD">USD (US Dollar)</option>
+                                <option value="SGD">SGD (Singapore Dollar)</option>
+                                <option value="THB">THB (Thai Baht)</option>
+                                <option value="VND">VND (Vietnamese Dong)</option>
+                                <option value="IDR">IDR (Indonesian Rupiah)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.locked_exchange_rate">Locked Exchange Rate (1 RM = X)</label>
+                            <input type="number" step="0.0001" min="0" id="cfg_locked_exchange_rate" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 1.65 (CNY)">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.config.default_cost">Default Cost (RM)</label>
+                            <input type="number" step="0.01" min="0" id="cfg_default_cost" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 10.00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section (d): Supplier Presets (migrated from account tab) -->
+                <div class="card rounded-xl p-5 cfg-section-locked" id="configSectionSupplier">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-white font-semibold flex items-center gap-1.5">
+                                <span>🏭</span>
+                                <span data-i18n="dashboard.supplier_title">Supplier Presets</span>
+                                <span id="supplierProBadge" class="hidden text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold">PRO</span>
+                                <span class="cfg-benefit-tip" data-i18n-title="dashboard.config.benefit_supplier" title="⏱ One-click fill supplier cost, no retyping">
+                                    <span>💡</span>
+                                    <span class="cfg-benefit-pop" data-i18n="dashboard.config.benefit_supplier">⏱ One-click fill supplier cost, no retyping</span>
+                                </span>
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-1" data-i18n="dashboard.supplier_hint">Save frequent suppliers (name, category, cost) for one-click fill on scan page.</p>
+                        </div>
+                        <button id="addSupplierBtn" onclick="openAddSupplierModal()" class="hidden px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <span data-i18n="dashboard.supplier_add">Add</span>
+                        </button>
+                    </div>
+                    <div id="supplierList" class="space-y-2">
+                        <div class="text-center py-6 text-slate-500 text-sm" data-i18n="dashboard.supplier_loading">Loading...</div>
+                    </div>
+                    <div id="supplierFreeHint" class="hidden mt-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30 text-center">
+                        <p class="text-sm text-purple-300 mb-2" data-i18n="dashboard.supplier_free_hint">⚙️ Supplier presets is a Pro feature. Upgrade to save your frequent suppliers and fill cost with one click.</p>
+                        <a href="#" onclick="handleUpgradeFromDashboard('supplier_presets'); return false;" class="inline-flex items-center justify-center px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition" data-i18n="dashboard.upgrade_short">Upgrade</a>
+                    </div>
+                </div>
+
+                <!-- Save Button (Pro only) -->
+                <div id="configSaveBar" class="hidden flex items-center justify-end gap-3">
+                    <span id="configSaveStatus" class="text-xs text-slate-500"></span>
+                    <button onclick="saveAllConfig()" class="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-semibold flex items-center gap-1.5 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span data-i18n="dashboard.config.save_all">Save All</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Toast -->
     <div id="toastContainer"></div>
 
-    <!-- Bind WA Modal -->
-    <div id="bindWaModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="card rounded-xl w-full max-w-sm p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-white font-semibold text-lg" data-i18n="dashboard.wa_modal_title">Activate 7-Day Free Trial</h3>
-                <button onclick="closeBindWaModal()" class="text-slate-400 hover:text-white">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            <p class="text-slate-400 text-sm mb-4" data-i18n="dashboard.wa_modal_desc">Bind your WhatsApp to unlock Pro features for 7 days.</p>
-            <form id="bindWaForm">
-                <input id="waNumberInput" type="tel" required
-                    class="w-full px-3 py-2.5 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-green-500 transition mb-2"
-                    data-i18n-placeholder="dashboard.wa_modal_input" placeholder="+6012 345 6789">
-                <p class="text-xs text-slate-500 mb-4 text-center">支持格式：+60123456789 或 +60 12-345 6789（马来西亚号码）</p>
-                <div id="bindWaError" class="text-red-400 text-xs mb-4 hidden" data-i18n="dashboard.wa_modal_error">Please enter a valid WhatsApp number</div>
-                <button type="submit" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition" data-i18n="dashboard.wa_modal_submit">
-                    Bind & Activate Trial
-                </button>
-            </form>
-        </div>
-    </div>
-
     <!-- Add Term Modal -->
     <div id="addTermModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="card rounded-xl w-full max-w-sm p-6">
             <h3 class="text-white font-semibold mb-4" data-i18n="dashboard.add_term">Add Term</h3>
-            <input type="text" id="newTermInput" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm mb-4 outline-none focus:border-indigo-500" placeholder="Enter term...">
+            <input type="text" id="newTermInput" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm mb-4 outline-none focus:border-orange-500" placeholder="Enter term...">
             <div class="flex gap-3">
                 <button onclick="closeAddTermModal()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-slate-300 rounded-lg text-sm font-medium" data-i18n="dashboard.cancel">Cancel</button>
-                <button onclick="saveNewTerm()" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium" data-i18n="dashboard.save">Save</button>
+                <button onclick="saveNewTerm()" class="flex-1 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium" data-i18n="dashboard.save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Supplier Modal (Phase 2.2) -->
+    <div id="supplierModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="card rounded-xl w-full max-w-md p-6">
+            <h3 id="supplierModalTitle" class="text-white font-semibold mb-4" data-i18n="dashboard.supplier_add_title">Add Supplier</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.supplier_name">Supplier Name</label>
+                    <input type="text" id="supplierNameInput" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 1688 Store A">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.supplier_category">Default Category</label>
+                    <select id="supplierCategorySelect" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500">
+                        <option value="general">General</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="fashion">Fashion</option>
+                        <option value="beauty">Beauty</option>
+                        <option value="home">Home</option>
+                        <option value="health">Health</option>
+                        <option value="baby">Baby</option>
+                        <option value="sports">Sports</option>
+                        <option value="food">Food</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1" data-i18n="dashboard.supplier_cost">Default Cost (RM)</label>
+                    <input type="number" step="0.01" min="0" id="supplierCostInput" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm outline-none focus:border-orange-500" placeholder="e.g. 10.50">
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="closeSupplierModal()" class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 text-slate-300 rounded-lg text-sm font-medium" data-i18n="dashboard.cancel">Cancel</button>
+                <button onclick="saveSupplier()" class="flex-1 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium" data-i18n="dashboard.save">Save</button>
             </div>
         </div>
     </div>
@@ -309,7 +538,55 @@
             <p class="text-slate-400 text-sm mb-6" data-i18n="dashboard.batch_upgrade_desc">Upgrade to Pro to unlock batch scanning (up to 200 items per file).</p>
             <div class="flex gap-3">
                 <button onclick="closeBatchUpgradeModal()" class="flex-1 py-2.5 bg-gray-700 hover:bg-gray-600 text-slate-300 rounded-lg text-sm font-medium" data-i18n="dashboard.cancel">Cancel</button>
-                <a href="#" onclick="handleUpgradeFromDashboard('batch_upgrade_modal')" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold inline-flex items-center justify-center" data-i18n="dashboard.batch_upgrade_action">View Plans</a>
+                <a href="#" onclick="handleUpgradeFromDashboard('batch_upgrade_modal'); return false;" class="flex-1 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-semibold inline-flex items-center justify-center" data-i18n="dashboard.batch_upgrade_action">View Plans</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome / Trial Activated Modal -->
+    <div id="welcomeModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="card rounded-2xl w-full max-w-md p-8 text-center relative overflow-hidden">
+            <!-- Decorative gradient -->
+            <div class="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-orange-600/20 to-transparent"></div>
+            <div class="relative">
+                <div class="w-20 h-20 mx-auto mb-5 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg shadow-orange-500/30">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <h3 class="text-white font-bold text-xl mb-2" data-i18n="dashboard.welcome_title">Trial Activated!</h3>
+                <p class="text-slate-400 text-sm mb-6" data-i18n="dashboard.welcome_subtitle">You now have full access to pre-audit & profit intelligence</p>
+
+                <div class="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4 mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-slate-400 text-sm" data-i18n="dashboard.welcome_trial_days">Trial Period</span>
+                        <span id="welcomeTrialDays" class="text-orange-400 font-bold text-lg">14 Days</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-left mb-6">
+                    <div class="flex items-center gap-2 text-sm text-slate-300">
+                        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span data-i18n="dashboard.welcome_feature1">Unlimited single scans (no daily limit)</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-slate-300">
+                        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span data-i18n="dashboard.welcome_feature2">Full profit analysis with fee breakdown</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-slate-300">
+                        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span data-i18n="dashboard.welcome_feature3">Batch scan up to 100 items</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-slate-300">
+                        <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span data-i18n="dashboard.welcome_feature4">AI insight recommendations</span>
+                    </div>
+                </div>
+
+                <button onclick="closeWelcomeModal()" class="w-full py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl text-sm font-semibold transition" data-i18n="dashboard.welcome_start">Get Started</button>
             </div>
         </div>
     </div>
@@ -337,7 +614,7 @@
 
         const translations = {
             en: {
-                'dashboard.title': 'Seller Compliance Dashboard',
+                'dashboard.title': 'Seller Dashboard',
                 'dashboard.back_home': 'Home',
                 'dashboard.logout': 'Logout',
                 'dashboard.nav.dashboard': 'Dashboard',
@@ -349,6 +626,34 @@
                 'dashboard.tab.history': 'Detection History',
                 'dashboard.tab.whitelist': 'Whitelist',
                 'dashboard.tab.account': 'Account',
+                'dashboard.tab.config': 'Pro Config',
+                'dashboard.config.title': 'Pro Config Center',
+                'dashboard.config.free_hint': '⚙️ Config Center is a Pro feature. Upgrade to customize platform fees, profit targets, currency, and suppliers.',
+                'dashboard.config.section_platform': 'Platform Fee Defaults',
+                'dashboard.config.section_platform_hint': 'Pre-fill shipping fee, cost, category, cashback, and seller type on the scan page.',
+                'dashboard.config.shipping_fee': 'Shipping Fee (RM)',
+                'dashboard.config.shipping_cost': 'Shipping Cost (RM)',
+                'dashboard.config.default_category': 'Default Category',
+                'dashboard.config.seller_type': 'Seller Type',
+                'dashboard.config.cashback': 'Enable Cashback (Shopee only)',
+                'dashboard.config.section_profit': 'Profit Targets',
+                'dashboard.config.section_profit_hint': 'Set target margin and minimum profit threshold for the profit analysis.',
+                'dashboard.config.target_profit_margin': 'Target Profit Margin (%)',
+                'dashboard.config.min_profit_threshold': 'Min Profit Threshold (RM)',
+                'dashboard.config.section_currency': 'Currency / Exchange Rate',
+                'dashboard.config.section_currency_hint': 'Display profit analysis in your preferred currency. Lock the exchange rate to avoid fluctuation.',
+                'dashboard.config.default_currency': 'Display Currency',
+                'dashboard.config.locked_exchange_rate': 'Locked Exchange Rate (1 RM = X)',
+                'dashboard.config.default_cost': 'Default Cost (RM)',
+                'dashboard.config.save_all': 'Save All',
+                'dashboard.config.saving': 'Saving...',
+                'dashboard.config.saved': 'Saved',
+                'dashboard.config.saved_toast': 'Config saved',
+                'dashboard.config.benefit_platform': '⏱ Saves ~30s per scan by auto-filling fees',
+                'dashboard.config.benefit_profit': '🛡 Avoids underpricing by enforcing target margin',
+                'dashboard.config.benefit_currency': '🛡 Locks FX rate to avoid profit misjudgment',
+                'dashboard.config.benefit_supplier': '⏱ One-click fill supplier cost, no retyping',
+                'dashboard.config.locked_tooltip': '🔒 Pro feature — upgrade to edit',
                 'dashboard.history_title': 'Recent Scans',
                 'dashboard.free_limit_bar': '⚠️ Free Plan: Max 5 records. Upgrade to Pro for unlimited history.',
                 'dashboard.view_detail': 'View Detail →',
@@ -395,10 +700,10 @@
                 'dashboard.banner_plan_pro': '👤 Pro',
                 'dashboard.banner_upgrade': 'Upgrade Pro →',
                 'dashboard.upgrade_hint': 'Unlock batch processing, unlimited scans, and advanced filters.',
-                'dashboard.wa_activate_hint': 'Bind WhatsApp to activate 7-day free trial and unlock Pro features.',
+                'dashboard.wa_activate_hint': 'Bind WhatsApp to activate 14-day free trial and unlock Pro features.',
                 'dashboard.wa_activate_btn': 'Bind WhatsApp Now',
-                'dashboard.wa_modal_title': 'Activate 7-Day Free Trial',
-                'dashboard.wa_modal_desc': 'Bind your WhatsApp to unlock Pro features for 7 days.',
+                'dashboard.wa_modal_title': 'Activate 14-Day Free Trial',
+                'dashboard.wa_modal_desc': 'Bind your WhatsApp to unlock Pro features for 14 days.',
                 'dashboard.wa_modal_input': 'Enter WhatsApp number (e.g., +60123456789)',
                 'dashboard.wa_modal_error': 'Please enter a valid WhatsApp number',
                 'dashboard.wa_modal_submit': 'Bind & Activate Trial',
@@ -413,6 +718,22 @@
                 'dashboard.passwordFailed': 'Failed to save password.',
                 'dashboard.cancel': 'Cancel',
                 'dashboard.save': 'Save',
+                'dashboard.supplier_title': 'Supplier Presets',
+                'dashboard.supplier_hint': 'Save frequent suppliers (name, category, cost) for one-click fill on scan page.',
+                'dashboard.supplier_add': 'Add',
+                'dashboard.supplier_loading': 'Loading...',
+                'dashboard.supplier_free_hint': '⚙️ Supplier presets is a Pro feature. Upgrade to save your frequent suppliers and fill cost with one click.',
+                'dashboard.supplier_locked': '🔒 Upgrade Pro to manage supplier presets',
+                'dashboard.supplier_empty': 'No suppliers yet. Click "Add" to create one.',
+                'dashboard.supplier_add_title': 'Add Supplier',
+                'dashboard.supplier_edit_title': 'Edit Supplier',
+                'dashboard.supplier_name': 'Supplier Name',
+                'dashboard.supplier_category': 'Default Category',
+                'dashboard.supplier_cost': 'Default Cost (RM)',
+                'dashboard.supplier_name_required': 'Please enter supplier name',
+                'dashboard.supplier_saved': 'Supplier saved',
+                'dashboard.supplier_deleted': 'Supplier deleted',
+                'dashboard.supplier_delete_confirm': 'Delete this supplier?',
                 'dashboard.detail_title': 'Scan Details',
                 'dashboard.batch_upgrade_title': 'Batch Scan is Pro Only',
                 'dashboard.batch_upgrade_desc': 'Upgrade to Pro to unlock batch scanning (up to 200 items per file).',
@@ -433,10 +754,19 @@
                 'dashboard.whitelist_saved': 'Whitelist saved!',
                 'dashboard.whitelist_deleted': 'Term deleted!',
                 'dashboard.delete_confirm': 'Delete this term?',
-                'dashboard.history_record': '{count} records'
+                'dashboard.history_record': '{count} records',
+                'dashboard.welcome_title': 'Trial Activated!',
+                'dashboard.welcome_subtitle': 'You now have full access to pre-audit & profit intelligence',
+                'dashboard.welcome_trial_days': 'Trial Period',
+                'dashboard.welcome_feature1': 'Unlimited single scans (no daily limit)',
+                'dashboard.welcome_feature2': 'Full profit analysis with fee breakdown',
+                'dashboard.welcome_feature3': 'Batch scan up to 100 items',
+                'dashboard.welcome_feature4': 'AI insight recommendations',
+                'dashboard.welcome_start': 'Get Started',
+                'dashboard.history_locked_tip': 'Upgrade to Pro to view all {total} records'
             },
             zh: {
-                'dashboard.title': '卖家合规控制台',
+                'dashboard.title': '卖家工作台',
                 'dashboard.back_home': '首页',
                 'dashboard.logout': '登出',
                 'dashboard.nav.dashboard': '控制台',
@@ -448,6 +778,34 @@
                 'dashboard.tab.history': '检测历史',
                 'dashboard.tab.whitelist': '白名单',
                 'dashboard.tab.account': '账户设置',
+                'dashboard.tab.config': 'Pro 配置',
+                'dashboard.config.title': 'Pro 配置中心',
+                'dashboard.config.free_hint': '⚙️ 配置中心是 Pro 功能。升级后可自定义平台费率、利润目标、货币与供应商。',
+                'dashboard.config.section_platform': '平台费率默认值',
+                'dashboard.config.section_platform_hint': '预填扫描页的运费、成本、类目、返现与卖家类型。',
+                'dashboard.config.shipping_fee': '运费 (RM)',
+                'dashboard.config.shipping_cost': '物流成本 (RM)',
+                'dashboard.config.default_category': '默认类目',
+                'dashboard.config.seller_type': '卖家类型',
+                'dashboard.config.cashback': '启用返现（仅 Shopee）',
+                'dashboard.config.section_profit': '利润目标',
+                'dashboard.config.section_profit_hint': '设置利润分析的目标利润率与最低利润阈值。',
+                'dashboard.config.target_profit_margin': '目标利润率 (%)',
+                'dashboard.config.min_profit_threshold': '最低利润阈值 (RM)',
+                'dashboard.config.section_currency': '货币 / 汇率',
+                'dashboard.config.section_currency_hint': '以偏好货币展示利润分析。锁定汇率避免波动。',
+                'dashboard.config.default_currency': '显示货币',
+                'dashboard.config.locked_exchange_rate': '锁定汇率 (1 RM = X)',
+                'dashboard.config.default_cost': '默认成本 (RM)',
+                'dashboard.config.save_all': '全部保存',
+                'dashboard.config.saving': '保存中...',
+                'dashboard.config.saved': '已保存',
+                'dashboard.config.saved_toast': '配置已保存',
+                'dashboard.config.benefit_platform': '⏱ 每次扫描自动填入费率，省约 30 秒',
+                'dashboard.config.benefit_profit': '🛡 强制目标利润率，避免亏本上架',
+                'dashboard.config.benefit_currency': '🛡 锁定汇率，避免利润误判',
+                'dashboard.config.benefit_supplier': '⏱ 一键填入供应商成本，免重复输入',
+                'dashboard.config.locked_tooltip': '🔒 Pro 功能 — 升级后可编辑',
                 'dashboard.history_title': '近期扫描',
                 'dashboard.free_limit_bar': '⚠️ 免费版：最多 5 条记录。升级 Pro 查看完整历史。',
                 'dashboard.view_detail': '查看详情 →',
@@ -477,10 +835,10 @@
                 'dashboard.banner_plan_pro': '👤 Pro',
                 'dashboard.banner_upgrade': '升级 Pro →',
                 'dashboard.upgrade_hint': '解锁批量扫描、无限次数与高级筛选。',
-                'dashboard.wa_activate_hint': '绑定 WhatsApp 激活 7 天免费试用，解锁 Pro 权限。',
+                'dashboard.wa_activate_hint': '绑定 WhatsApp 激活 14 天免费试用，解锁 Pro 权限。',
                 'dashboard.wa_activate_btn': '立即绑定 WA',
-                'dashboard.wa_modal_title': '激活 7 天免费试用',
-                'dashboard.wa_modal_desc': '绑定 WhatsApp 号码，免费解锁 Pro 功能 7 天。',
+                'dashboard.wa_modal_title': '激活 14 天免费试用',
+                'dashboard.wa_modal_desc': '绑定 WhatsApp 号码，免费解锁 Pro 功能 14 天。',
                 'dashboard.wa_modal_input': '请输入 WhatsApp 号码（如 +60123456789）',
                 'dashboard.wa_modal_error': '请输入有效的 WhatsApp 号码',
                 'dashboard.wa_modal_submit': '绑定并激活试用',
@@ -495,6 +853,22 @@
                 'dashboard.passwordFailed': '密码保存失败。',
                 'dashboard.cancel': '取消',
                 'dashboard.save': '保存',
+                'dashboard.supplier_title': '供应商预设',
+                'dashboard.supplier_hint': '保存常用供应商（名称、类目、成本），扫描页一键填入成本。',
+                'dashboard.supplier_add': '添加',
+                'dashboard.supplier_loading': '加载中...',
+                'dashboard.supplier_free_hint': '⚙️ 供应商预设是 Pro 功能。升级后可保存常用供应商，扫描时一键填入成本。',
+                'dashboard.supplier_locked': '🔒 升级 Pro 以管理供应商预设',
+                'dashboard.supplier_empty': '暂无供应商。点击"添加"创建一个。',
+                'dashboard.supplier_add_title': '添加供应商',
+                'dashboard.supplier_edit_title': '编辑供应商',
+                'dashboard.supplier_name': '供应商名称',
+                'dashboard.supplier_category': '默认类目',
+                'dashboard.supplier_cost': '默认成本 (RM)',
+                'dashboard.supplier_name_required': '请输入供应商名称',
+                'dashboard.supplier_saved': '供应商已保存',
+                'dashboard.supplier_deleted': '供应商已删除',
+                'dashboard.supplier_delete_confirm': '确认删除该供应商？',
                 'dashboard.detail_title': '检测详情',
                 'dashboard.settings.badge.pro': '🟢 Pro · 有效期至 {date}',
                 'dashboard.settings.badge.trial': '🟡 试用中 · 剩余 {days} 天',
@@ -531,15 +905,62 @@
                 'dashboard.delete_confirm': '确认删除该词条？',
                 'dashboard.history_record': '{count} 条记录',
                 'dashboard.batch_upgrade_title': '批量扫描为 Pro 专属',
-                'dashboard.batch_upgrade_desc': '升级 Pro 解锁批量扫描功能（最高 200 条/次）',
-                'dashboard.batch_upgrade_action': '查看套餐'
+                'dashboard.batch_upgrade_desc': '升级 Pro 解锁批量扫描功能（最高 100 条/次）',
+                'dashboard.batch_upgrade_action': '查看套餐',
+                'dashboard.welcome_title': '试用已激活！',
+                'dashboard.welcome_subtitle': '您已获得预审与利润智能全功能体验权限',
+                'dashboard.welcome_trial_days': '试用周期',
+                'dashboard.welcome_feature1': '无限单次扫描（无每日限制）',
+                'dashboard.welcome_feature2': '完整利润分析与费用拆解',
+                'dashboard.welcome_feature3': '批量扫描最多 100 条',
+                'dashboard.welcome_feature4': 'AI 洞察建议引擎',
+                'dashboard.welcome_start': '开始使用',
+                'dashboard.history_locked_tip': '升级 Pro 查看全部 {total} 条记录'
             }
         };
 
         document.addEventListener('DOMContentLoaded', () => {
             applyLanguage(currentLang);
+            // P2-2: 检查是否有待认领的会话数据（注册后跳转）
+            handleSessionClaim();
             loadDashboard();
         });
+
+        // P2-2: 数据认领处理
+        async function handleSessionClaim() {
+            const params = new URLSearchParams(window.location.search);
+            const claimedSessionId = params.get('claimed');
+            if (!claimedSessionId) return;
+
+            try {
+                const res = await fetch('/api/session/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: claimedSessionId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    const isZh = currentLang === 'zh';
+                    if (data.already_claimed) {
+                        showToast(isZh ? '数据已认领' : 'Data already claimed', 'info');
+                    } else {
+                        const titleInfo = data.title_snippet ? ` (${data.title_snippet.substring(0, 30)}...)` : '';
+                        showToast(isZh ? `✅ 扫描数据已保存到历史记录${titleInfo}` : `✅ Scan data saved to your history${titleInfo}`, 'success');
+                    }
+                } else {
+                    const isZh = currentLang === 'zh';
+                    showToast(isZh ? '会话数据已过期' : 'Session data has expired', 'info');
+                }
+            } catch (err) {
+                console.error('Claim error:', err);
+            }
+
+            // 清除 URL 中的 claimed 参数
+            const url = new URL(window.location.href);
+            url.searchParams.delete('claimed');
+            window.history.replaceState({}, document.title, url.toString());
+        }
 
         function toggleLanguage() {
             currentLang = currentLang === 'en' ? 'zh' : 'en';
@@ -555,6 +976,11 @@
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (t[key]) el.textContent = t[key];
+            });
+            // Phase 4.2: 同步 data-i18n-title 到原生 title 属性
+            document.querySelectorAll('[data-i18n-title]').forEach(el => {
+                const key = el.getAttribute('data-i18n-title');
+                if (t[key]) el.setAttribute('title', t[key]);
             });
             if (dashboardData) {
                 renderNav();
@@ -631,12 +1057,8 @@
         }
 
         function handleBatchClick() {
-            const isPro = isProUser(dashboardData);
-            if (isPro) {
-                window.location.href = '/scan';
-            } else {
-                openBatchUpgradeModal();
-            }
+            // 所有用户都可以访问批量扫描，按层级限制条数
+            window.location.href = '/batch';
         }
 
         function openBatchUpgradeModal() {
@@ -659,6 +1081,39 @@
             renderWhitelist();
             renderAccount();
             renderPasswordSection();
+            checkWelcomeModal();
+        }
+
+        function checkWelcomeModal() {
+            // 仅 Trial 用户且首次进入时显示欢迎弹窗
+            const status = dashboardData.status;
+            const isTrial = dashboardData.is_pro && status === 'trial';
+            if (!isTrial) return;
+
+            const email = dashboardData.email || '';
+            const welcomeKey = `welcome_shown_${email}`;
+            if (localStorage.getItem(welcomeKey)) return;
+
+            // 更新试用天数
+            const days = dashboardData.trial_remaining_days || 14;
+            const daysEl = document.getElementById('welcomeTrialDays');
+            if (daysEl) {
+                daysEl.textContent = currentLang === 'zh' ? `${days} 天` : `${days} Days`;
+            }
+
+            // 显示弹窗
+            const modal = document.getElementById('welcomeModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // 标记已显示
+            localStorage.setItem(welcomeKey, '1');
+        }
+
+        function closeWelcomeModal() {
+            const modal = document.getElementById('welcomeModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
 
         function renderBanner() {
@@ -701,18 +1156,18 @@
             const waBound = dashboardData.wa_bound || false;
             waActivate.classList.toggle('hidden', isPro || waBound);
 
-            // Batch Scan 按钮（仅 Pro 用户可见）
+            // Batch Scan 按钮（所有用户可见，按层级限制条数）
             const batchTab = document.getElementById('mainTab-batch');
             if (batchTab) {
-                batchTab.classList.toggle('hidden', !isPro);
+                batchTab.classList.remove('hidden');
             }
         }
 
         function renderNav() {
-            const isPro = isProUser(dashboardData);
+            // 所有用户可见批量扫描入口
             const navBatch = document.getElementById('navBatch');
             if (navBatch) {
-                navBatch.classList.toggle('hidden', !isPro);
+                navBatch.classList.remove('hidden');
             }
         }
 
@@ -727,14 +1182,23 @@
             freeBanner.classList.toggle('hidden', isPro);
             exportBtn.classList.toggle('hidden', !isPro);
 
-            const items = dashboardData.history || [];
-            if (!items.length) {
+            const allItems = dashboardData.history || [];
+            if (!allItems.length) {
                 list.innerHTML = `<div class="text-center py-12 text-slate-500 text-sm">${t('dashboard.no_history')}</div>`;
                 document.getElementById('paginationContainer').innerHTML = '';
                 return;
             }
 
-            list.innerHTML = items.map(item => {
+            // Free 用户仅展示前 5 条，其余锁定
+            const FREE_HISTORY_LIMIT = 5;
+            let items = allItems;
+            let lockedCount = 0;
+            if (!isPro) {
+                items = allItems.slice(0, FREE_HISTORY_LIMIT);
+                lockedCount = Math.max(0, historyTotal - items.length);
+            }
+
+            let html = items.map(item => {
                 if (item.mode === 'batch') {
                     const isPartial = item.status === 'partial';
                     let riskBadgeClass = 'badge-low';
@@ -756,7 +1220,7 @@
                             <div class="flex items-center gap-4">
                                 <!-- Batch Icon -->
                                 <div class="shrink-0">
-                                    <div class="bg-indigo-600 w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs">📋</div>
+                                    <div class="bg-orange-600 w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs">📋</div>
                                 </div>
                                 <!-- Info -->
                                 <div class="flex-1 min-w-0">
@@ -771,7 +1235,7 @@
                                     <span class="text-slate-400 text-xs">${t('dashboard.batch_risk')} ${item.risk_high}/${item.risk_medium}</span>
                                     <span class="text-slate-400 text-xs">${t('dashboard.batch_avg')} ${avgMargin}</span>
                                     <span class="px-2 py-1 rounded text-xs font-semibold ${riskBadgeClass}">${riskBadgeText}</span>
-                                    <span class="text-indigo-400 text-xs font-medium hover:text-indigo-300">${t('dashboard.batch_report')}</span>
+                                    <span class="text-orange-400 text-xs font-medium hover:text-orange-300">${t('dashboard.batch_report')}</span>
                                 </div>
                             </div>
                         </div>
@@ -830,7 +1294,7 @@
                                 <div class="flex items-center gap-2 shrink-0">
                                     ${profitBadge || '<span class="text-slate-500 text-xs">-</span>'}
                                     <span class="px-2 py-1 rounded text-xs font-semibold ${badgeClass}">${badgeText}</span>
-                                    <span class="text-indigo-400 text-xs font-medium hover:text-indigo-300">${t('dashboard.view_detail')}</span>
+                                    <span class="text-orange-400 text-xs font-medium hover:text-orange-300">${t('dashboard.view_detail')}</span>
                                 </div>
                             </div>
                         </div>
@@ -838,7 +1302,45 @@
                 }
             }).join('');
 
-            renderPagination();
+            // Free 用户锁定提示卡片
+            if (!isPro && lockedCount > 0) {
+                html += `
+                    <div class="card rounded-lg p-4 border border-slate-600/50 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-slate-800/60 backdrop-blur-[2px] flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-700/80 flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                    </svg>
+                                </div>
+                                <p class="text-slate-400 text-sm font-medium mb-1">${lockedCount} ${currentLang === 'zh' ? '条记录已锁定' : 'records locked'}</p>
+                                <p class="text-slate-500 text-xs mb-3">${t('dashboard.history_locked_tip').replace('{total}', historyTotal)}</p>
+                                <a href="#" onclick="handleUpgradeFromDashboard('history_lock'); return false;" class="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold transition">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                                    ${t('dashboard.upgrade_short')}
+                                </a>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 opacity-30">
+                            <div class="bg-slate-600 w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs">🔒</div>
+                            <div class="flex-1">
+                                <p class="text-slate-500 text-sm">█████████████████</p>
+                                <p class="text-slate-600 text-xs mt-1">██████████</p>
+                            </div>
+                            <span class="px-2 py-1 rounded text-xs font-semibold badge-medium">███</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            list.innerHTML = html;
+
+            // Free 用户不显示分页（锁定状态下）
+            if (!isPro && lockedCount > 0) {
+                document.getElementById('paginationContainer').innerHTML = '';
+            } else {
+                renderPagination();
+            }
         }
 
         function renderPagination() {
@@ -988,9 +1490,158 @@
             // Upgrade CTA
             document.getElementById('upgradeCTA').classList.toggle('hidden', isPro);
 
-            // WA Activate CTA - show for non-pro users who haven't bound WA
-            const waBound = dashboardData.wa_bound || false;
-            document.getElementById('waActivateCTA').classList.toggle('hidden', isPro || waBound);
+            // Phase 4.1: 供应商预设已迁移到 config tab，此处不再加载
+        }
+
+        // ============ Phase 2.2: 供应商预设 CRUD ============
+        let supplierListCache = [];
+        let editingSupplierName = null;  // null=新增模式，非null=编辑模式
+
+        async function loadSuppliers() {
+            try {
+                const res = await fetch('/api/user/preferences/suppliers');
+                if (!res.ok) return;
+                const data = await res.json();
+                supplierListCache = data.suppliers || [];
+                renderSuppliers(data.is_pro);
+            } catch (e) {
+                console.error('loadSuppliers error:', e);
+            }
+        }
+
+        function renderSuppliers(isPro) {
+            const listEl = document.getElementById('supplierList');
+            const addBtn = document.getElementById('addSupplierBtn');
+            const freeHint = document.getElementById('supplierFreeHint');
+            const proBadge = document.getElementById('supplierProBadge');
+
+            if (isPro) {
+                addBtn.classList.remove('hidden');
+                freeHint.classList.add('hidden');
+                proBadge.classList.remove('hidden');
+            } else {
+                addBtn.classList.add('hidden');
+                freeHint.classList.remove('hidden');
+                proBadge.classList.add('hidden');
+            }
+
+            if (!isPro) {
+                listEl.innerHTML = `<div class="text-center py-4 text-slate-600 text-xs">${t('dashboard.supplier_locked')}</div>`;
+                return;
+            }
+
+            if (supplierListCache.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-6 text-slate-500 text-sm">${t('dashboard.supplier_empty')}</div>`;
+                return;
+            }
+
+            const isZh = currentLang === 'zh';
+            listEl.innerHTML = supplierListCache.map((s, i) => `
+                <div class="flex items-center justify-between p-3 rounded-lg bg-gray-800/40 border border-white/5">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-white text-sm font-medium truncate">${escapeHtml(s.name)}</div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            <span class="inline-block px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400 mr-1.5">${escapeHtml(s.category || 'general')}</span>
+                            <span class="text-emerald-400">RM ${(s.cost || 0).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 ml-2">
+                        <button onclick="editSupplier(${i})" class="p-1.5 text-slate-400 hover:text-orange-400 transition" title="${isZh ? '编辑' : 'Edit'}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        </button>
+                        <button onclick="deleteSupplier('${escapeHtml(s.name)}')" class="p-1.5 text-slate-400 hover:text-red-400 transition" title="${isZh ? '删除' : 'Delete'}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function escapeHtml(str) {
+            if (str == null) return '';
+            return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+        }
+
+        function openAddSupplierModal() {
+            editingSupplierName = null;
+            document.getElementById('supplierModalTitle').textContent = t('dashboard.supplier_add_title');
+            document.getElementById('supplierNameInput').value = '';
+            document.getElementById('supplierCategorySelect').value = 'general';
+            document.getElementById('supplierCostInput').value = '';
+            document.getElementById('supplierModal').classList.remove('hidden');
+            document.getElementById('supplierModal').classList.add('flex');
+            document.getElementById('supplierNameInput').focus();
+        }
+
+        function editSupplier(idx) {
+            const s = supplierListCache[idx];
+            if (!s) return;
+            editingSupplierName = s.name;
+            document.getElementById('supplierModalTitle').textContent = t('dashboard.supplier_edit_title');
+            document.getElementById('supplierNameInput').value = s.name || '';
+            document.getElementById('supplierCategorySelect').value = s.category || 'general';
+            document.getElementById('supplierCostInput').value = s.cost || '';
+            document.getElementById('supplierModal').classList.remove('hidden');
+            document.getElementById('supplierModal').classList.add('flex');
+        }
+
+        function closeSupplierModal() {
+            document.getElementById('supplierModal').classList.add('hidden');
+            document.getElementById('supplierModal').classList.remove('flex');
+            editingSupplierName = null;
+        }
+
+        async function saveSupplier() {
+            const name = document.getElementById('supplierNameInput').value.trim();
+            const category = document.getElementById('supplierCategorySelect').value;
+            const cost = parseFloat(document.getElementById('supplierCostInput').value) || 0;
+
+            if (!name) {
+                showToast(t('dashboard.supplier_name_required'), 'warning');
+                return;
+            }
+
+            const payload = { name, category, cost };
+            const url = editingSupplierName
+                ? `/api/user/preferences/suppliers/${encodeURIComponent(editingSupplierName)}`
+                : '/api/user/preferences/suppliers';
+            const method = editingSupplierName ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(t('dashboard.supplier_saved'), 'success');
+                    supplierListCache = data.suppliers || [];
+                    renderSuppliers(true);
+                    closeSupplierModal();
+                } else {
+                    showToast(data.detail || 'Failed', 'error');
+                }
+            } catch (err) {
+                showToast('Failed', 'error');
+            }
+        }
+
+        async function deleteSupplier(name) {
+            if (!confirm(t('dashboard.supplier_delete_confirm'))) return;
+            try {
+                const res = await fetch(`/api/user/preferences/suppliers/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(t('dashboard.supplier_deleted'), 'success');
+                    supplierListCache = data.suppliers || [];
+                    renderSuppliers(true);
+                } else {
+                    showToast(data.detail || 'Failed', 'error');
+                }
+            } catch (err) {
+                showToast('Failed', 'error');
+            }
         }
 
         function renderPasswordSection() {
@@ -1002,7 +1653,7 @@
                     <input type="password" id="newPwd" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm" placeholder="${t('dashboard.newPassword')}">
                     <input type="password" id="confirmPwd" class="w-full px-3 py-2 bg-gray-700 border border-white/10 rounded-lg text-white text-sm" placeholder="${t('dashboard.confirmPassword')}">
                     <p class="text-xs text-slate-500">${t('dashboard.passwordHint')}</p>
-                    <button onclick="handleSavePassword()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">${btnText}</button>
+                    <button onclick="handleSavePassword()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium">${btnText}</button>
                 </div>
             `;
         }
@@ -1035,7 +1686,7 @@
 
         function switchTab(tab) {
             currentTab = tab;
-            ['history', 'whitelist', 'account'].forEach(t => {
+            ['history', 'whitelist', 'account', 'config'].forEach(t => {
                 document.getElementById('panel-' + t).classList.add('hidden');
                 document.getElementById('tab-' + t).classList.remove('tab-active');
                 document.getElementById('tab-' + t).classList.add('tab-inactive');
@@ -1043,6 +1694,202 @@
             document.getElementById('panel-' + tab).classList.remove('hidden');
             document.getElementById('tab-' + tab).classList.add('tab-active');
             document.getElementById('tab-' + tab).classList.remove('tab-inactive');
+            // Phase 4.1: 切到 config tab 时加载偏好
+            if (tab === 'config' && !configLoaded) {
+                loadAllConfig();
+            }
+        }
+
+        // ============ Phase 4.1: Pro 配置中心 ============
+        let configLoaded = false;          // 是否已加载过偏好
+        let configCurrentPlatform = 'shopee';
+        let configAllPrefs = null;         // 完整偏好缓存 {platforms:{...}, global:{...}}
+
+        async function loadAllConfig() {
+            try {
+                const res = await fetch('/api/user/preferences');
+                if (!res.ok) { showToast('Failed to load config', 'error'); return; }
+                const data = await res.json();
+                configAllPrefs = data.preferences || {};
+                configLoaded = true;
+
+                const isPro = data.is_pro;
+                renderConfigHeader(isPro);
+                renderConfigForm();
+                loadSuppliers();
+                toggleConfigFormDisabled(!isPro);
+            } catch (e) {
+                console.error('loadAllConfig error:', e);
+                showToast('Failed to load config', 'error');
+            }
+        }
+
+        function renderConfigHeader(isPro) {
+            const proBadge = document.getElementById('configProBadge');
+            const freeHint = document.getElementById('configFreeHint');
+            const saveBar = document.getElementById('configSaveBar');
+            if (isPro) {
+                proBadge.classList.remove('hidden');
+                freeHint.classList.add('hidden');
+                saveBar.classList.remove('hidden');
+                saveBar.classList.add('flex');
+            } else {
+                proBadge.classList.add('hidden');
+                freeHint.classList.remove('hidden');
+                saveBar.classList.add('hidden');
+                saveBar.classList.remove('flex');
+            }
+        }
+
+        function switchConfigPlatform(platform) {
+            configCurrentPlatform = platform;
+            // 切换按钮样式
+            const sBtn = document.getElementById('cfgPlatformShopee');
+            const lBtn = document.getElementById('cfgPlatformLazada');
+            if (platform === 'shopee') {
+                sBtn.className = 'px-3 py-1 text-xs font-medium bg-orange-600 text-white rounded-md';
+                lBtn.className = 'px-3 py-1 text-xs font-medium text-slate-400 rounded-md';
+            } else {
+                lBtn.className = 'px-3 py-1 text-xs font-medium bg-orange-600 text-white rounded-md';
+                sBtn.className = 'px-3 py-1 text-xs font-medium text-slate-400 rounded-md';
+            }
+            renderConfigForm();
+        }
+
+        function renderConfigForm() {
+            if (!configAllPrefs) return;
+            const platforms = configAllPrefs.platforms || {};
+            const plat = platforms[configCurrentPlatform] || {};
+
+            // 平台字段
+            const sf = document.getElementById('cfg_shipping_fee');
+            const sc = document.getElementById('cfg_shipping_cost');
+            const dc = document.getElementById('cfg_default_category');
+            const st = document.getElementById('cfg_seller_type');
+            const cb = document.getElementById('cfg_cashback');
+            if (plat.shipping_fee != null) sf.value = plat.shipping_fee; else sf.value = '';
+            if (plat.shipping_cost != null) sc.value = plat.shipping_cost; else sc.value = '';
+            if (plat.default_category) dc.value = plat.default_category; else dc.value = 'general';
+            if (plat.seller_type) st.value = plat.seller_type; else st.value = 'marketplace';
+            cb.checked = !!plat.cashback;
+
+            // Lazada 不支持 cashback，禁用
+            const cashbackRow = document.getElementById('cfg_cashback');
+            if (configCurrentPlatform === 'lazada') {
+                cashbackRow.checked = false;
+                cashbackRow.disabled = true;
+                cashbackRow.parentElement.classList.add('opacity-40');
+            } else {
+                cashbackRow.disabled = false;
+                cashbackRow.parentElement.classList.remove('opacity-40');
+            }
+
+            // 利润目标
+            const tpm = document.getElementById('cfg_target_profit_margin');
+            const mpt = document.getElementById('cfg_min_profit_threshold');
+            if (plat.target_profit_margin != null) tpm.value = plat.target_profit_margin; else tpm.value = '';
+            if (plat.min_profit_threshold != null) mpt.value = plat.min_profit_threshold; else mpt.value = '';
+
+            // 货币/汇率
+            const g = configAllPrefs.global || {};
+            const dcu = document.getElementById('cfg_default_currency');
+            const ler = document.getElementById('cfg_locked_exchange_rate');
+            const dco = document.getElementById('cfg_default_cost');
+            if (g.default_currency) dcu.value = g.default_currency; else dcu.value = 'RM';
+            if (g.locked_exchange_rate != null) ler.value = g.locked_exchange_rate; else ler.value = '';
+            if (g.default_cost != null) dco.value = g.default_cost; else dco.value = '';
+        }
+
+        function toggleConfigFormDisabled(disabled) {
+            // 置灰所有 config 表单（保留 supplier 由 loadSuppliers 处理）
+            const ids = [
+                'cfg_shipping_fee', 'cfg_shipping_cost', 'cfg_default_category',
+                'cfg_seller_type', 'cfg_cashback', 'cfg_target_profit_margin',
+                'cfg_min_profit_threshold', 'cfg_default_currency',
+                'cfg_locked_exchange_rate', 'cfg_default_cost'
+            ];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = disabled;
+            });
+            // 平台切换按钮也禁用
+            document.getElementById('cfgPlatformShopee').disabled = disabled;
+            document.getElementById('cfgPlatformLazada').disabled = disabled;
+            // Phase 4.2: Free 用户给 4 个板块加锁定遮罩 + tooltip
+            const lockedTip = t('dashboard.config.locked_tooltip');
+            ['configSectionPlatform', 'configSectionProfit', 'configSectionCurrency', 'configSectionSupplier'].forEach(sid => {
+                const sec = document.getElementById(sid);
+                if (!sec) return;
+                if (disabled) {
+                    sec.classList.add('cfg-section-locked');
+                    sec.setAttribute('title', lockedTip);
+                } else {
+                    sec.classList.remove('cfg-section-locked');
+                    sec.removeAttribute('title');
+                }
+            });
+        }
+
+        async function saveAllConfig() {
+            if (!configAllPrefs) return;
+            // 收集表单值
+            const platformPayload = {
+                shipping_fee: parseFloat(document.getElementById('cfg_shipping_fee').value) || null,
+                shipping_cost: parseFloat(document.getElementById('cfg_shipping_cost').value) || null,
+                default_category: document.getElementById('cfg_default_category').value || null,
+                seller_type: document.getElementById('cfg_seller_type').value || null,
+                cashback: configCurrentPlatform === 'shopee' ? document.getElementById('cfg_cashback').checked : false,
+                target_profit_margin: parseFloat(document.getElementById('cfg_target_profit_margin').value) || null,
+                min_profit_threshold: parseFloat(document.getElementById('cfg_min_profit_threshold').value) || null,
+            };
+            // 移除 null（不更新）
+            Object.keys(platformPayload).forEach(k => {
+                if (platformPayload[k] === null || platformPayload[k] === '') delete platformPayload[k];
+            });
+
+            const globalPayload = {
+                default_currency: document.getElementById('cfg_default_currency').value || null,
+                locked_exchange_rate: parseFloat(document.getElementById('cfg_locked_exchange_rate').value) || null,
+                default_cost: parseFloat(document.getElementById('cfg_default_cost').value) || null,
+            };
+            Object.keys(globalPayload).forEach(k => {
+                if (globalPayload[k] === null || globalPayload[k] === '') delete globalPayload[k];
+            });
+
+            const body = {
+                platforms: { [configCurrentPlatform]: platformPayload },
+                global: globalPayload,
+            };
+
+            const statusEl = document.getElementById('configSaveStatus');
+            statusEl.textContent = t('dashboard.config.saving') || 'Saving...';
+            statusEl.className = 'text-xs text-amber-400';
+
+            try {
+                const res = await fetch('/api/user/preferences', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    configAllPrefs = data.preferences || configAllPrefs;
+                    statusEl.textContent = t('dashboard.config.saved') || 'Saved';
+                    statusEl.className = 'text-xs text-green-400';
+                    showToast(t('dashboard.config.saved_toast') || 'Config saved', 'success');
+                    setTimeout(() => {
+                        statusEl.textContent = '';
+                    }, 2500);
+                } else {
+                    statusEl.textContent = data.detail || 'Failed';
+                    statusEl.className = 'text-xs text-red-400';
+                    showToast(data.detail || 'Failed', 'error');
+                }
+            } catch (err) {
+                statusEl.textContent = 'Failed';
+                statusEl.className = 'text-xs text-red-400';
+                showToast('Failed', 'error');
+            }
         }
 
         function showDetail(item) {
@@ -1210,7 +2057,7 @@
                                                 <span class="text-xs text-slate-500">${typeLabel}</span>
                                             </div>
                                             <p class="text-slate-800 font-semibold text-sm">
-                                                <span class="text-purple-600">"${v.matched_word || ''}"</span>
+                                                <span class="text-orange-600">"${v.matched_word || ''}"</span>
                                                 <span class="text-slate-500 font-normal text-xs ml-1">${isZh ? '发现于' : 'in'} ${fieldLabels[v.field] || v.field}</span>
                                             </p>
                                         </div>
@@ -1232,10 +2079,10 @@
                     </div>
 
                     ${item.generated_safe_title ? `
-                    <div class="mt-4 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <div class="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
                         <div class="flex items-center justify-between mb-2">
-                            <h2 class="text-xs font-semibold text-indigo-600 uppercase tracking-wide">${isZh ? '推荐安全标题' : 'Recommended Safe Title'}</h2>
-                            <button onclick='copyText(decodeURIComponent("${encodeURIComponent(item.generated_safe_title)}"))' class="text-xs text-indigo-500 hover:text-indigo-600 font-medium">${isZh ? '复制' : 'Copy'}</button>
+                            <h2 class="text-xs font-semibold text-orange-600 uppercase tracking-wide">${isZh ? '推荐安全标题' : 'Recommended Safe Title'}</h2>
+                            <button onclick='copyText(decodeURIComponent("${encodeURIComponent(item.generated_safe_title)}"))' class="text-xs text-orange-500 hover:text-orange-600 font-medium">${isZh ? '复制' : 'Copy'}</button>
                         </div>
                         <p class="text-sm text-slate-800 font-medium break-words">"${item.generated_safe_title.replace(/"/g, '&quot;')}"</p>
                         <p class="text-xs text-gray-500 mt-1">${isZh ? '仅供参考，上架前请人工复核。' : 'Reference title only. Please verify before listing.'}</p>
@@ -1274,7 +2121,7 @@
             
             modal.classList.remove('hidden');
             modal.classList.add('flex');
-            content.innerHTML = `<div class="text-center py-8"><div class="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>`;
+            content.innerHTML = `<div class="text-center py-8"><div class="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>`;
 
             try {
                 const response = await fetch(`/api/batch/session/${sessionId}`, {
@@ -1354,7 +2201,7 @@
                         </div>
                     </div>
                     <div class="flex justify-end mb-4">
-                        <button onclick="exportBatchSession(${sessionId})" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+                        <button onclick="exportBatchSession(${sessionId})" class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             ${t('dashboard.export_csv')}
                         </button>
@@ -1462,60 +2309,11 @@
             window.location.href = '/';
         }
 
-        // ============ WA Bind Modal ============
-        function openBindWaModal() {
-            document.getElementById('bindWaModal').classList.remove('hidden');
-            document.getElementById('bindWaModal').classList.add('flex');
-            document.getElementById('waNumberInput').focus();
-            document.getElementById('bindWaError').classList.add('hidden');
-        }
-
-        function closeBindWaModal() {
-            document.getElementById('bindWaModal').classList.add('hidden');
-            document.getElementById('bindWaModal').classList.remove('flex');
-        }
-
-        async function handleBindWa(e) {
-            e.preventDefault();
-            const waNumber = document.getElementById('waNumberInput').value.trim();
-            const errorEl = document.getElementById('bindWaError');
-            
-            if (!waNumber) {
-                errorEl.classList.remove('hidden');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/bind-wa', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wa_number: waNumber }),
-                    credentials: 'include'
-                });
-                
-                const data = await res.json();
-                
-                if (data.success) {
-                    showToast(t('dashboard.wa_bind_success') || 'WA bound successfully!', 'success');
-                    closeBindWaModal();
-                    setTimeout(() => window.location.reload(), 1500);
-                } else {
-                    errorEl.textContent = data.error || t('dashboard.wa_modal_error');
-                    errorEl.classList.remove('hidden');
-                }
-            } catch (err) {
-                console.error('Bind WA failed:', err);
-                errorEl.textContent = t('dashboard.wa_modal_error');
-                errorEl.classList.remove('hidden');
-            }
-        }
-
         // Bind events
-        document.getElementById('bindWaForm').addEventListener('submit', handleBindWa);
-        document.getElementById('bindWaModal').addEventListener('click', e => { if (e.target.id === 'bindWaModal') closeBindWaModal(); });
         document.getElementById('addTermModal').addEventListener('click', e => { if (e.target.id === 'addTermModal') closeAddTermModal(); });
         document.getElementById('detailModal').addEventListener('click', e => { if (e.target.id === 'detailModal') closeDetailModal(); });
         document.getElementById('batchUpgradeModal').addEventListener('click', e => { if (e.target.id === 'batchUpgradeModal') closeBatchUpgradeModal(); });
+        document.getElementById('welcomeModal').addEventListener('click', e => { if (e.target.id === 'welcomeModal') closeWelcomeModal(); });
 
         async function handleUpgradeFromDashboard(position) {
             try {
@@ -1525,7 +2323,8 @@
                     body: JSON.stringify({ source_page: 'dashboard', button_position: position })
                 });
             } catch (e) {}
-            window.location.href = '/pricing/pay#pro';
+            // 差异化跳转：dashboard 页面用户已登录，直接跳定价页
+            window.location.href = '/pricing/pay';
         }
     </script>
 </body>

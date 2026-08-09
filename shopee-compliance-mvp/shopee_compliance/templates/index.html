@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="pageTitle">Shopee MY Compliance Checker</title>
+    <title data-i18n="pageTitle">Shopee & Lazada MY Pre-Audit & Profit Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -17,10 +17,10 @@
             background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
         }
         .btn-gradient {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            background: linear-gradient(135deg, #EE4D2D 0%, #F97316 100%);
         }
         .btn-gradient:hover {
-            background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+            background: linear-gradient(135deg, #DC3D1D 0%, #EA580C 100%);
         }
         .input-dark {
             background: rgba(15, 23, 42, 0.6);
@@ -30,17 +30,17 @@
             color: rgba(255, 255, 255, 0.35);
         }
         .input-dark:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+            border-color: #EE4D2D;
+            box-shadow: 0 0 0 3px rgba(238, 77, 45, 0.25);
             outline: none;
         }
         .trial-bar {
             background: linear-gradient(90deg, #10b981 0%, #059669 100%);
         }
         .tab-active {
-            border-bottom: 2px solid #6366f1;
+            border-bottom: 2px solid #EE4D2D;
             color: #fff;
-            background: rgba(99, 102, 241, 0.1);
+            background: rgba(238, 77, 45, 0.1);
         }
         .tab-inactive {
             color: #94a3b8;
@@ -75,8 +75,8 @@
             border: 1px solid rgba(238, 77, 45, 0.3);
         }
         .first-time-banner {
-            background: linear-gradient(90deg, rgba(37, 99, 235, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
-            border: 1px solid rgba(37, 99, 235, 0.3);
+            background: linear-gradient(90deg, rgba(238, 77, 45, 0.15) 0%, rgba(249, 115, 22, 0.15) 100%);
+            border: 1px solid rgba(238, 77, 45, 0.3);
         }
     </style>
 </head>
@@ -85,7 +85,7 @@
     <div class="w-full max-w-lg flex justify-between items-center mb-4">
         <!-- Login/Logout Button -->
         <div id="authButton">
-            <a href="/login" id="loginLink" data-i18n="login" class="text-indigo-400 hover:text-indigo-300 text-xs sm:text-sm font-medium transition">
+            <a href="/login" id="loginLink" data-i18n="login" class="text-orange-400 hover:text-orange-300 text-xs sm:text-sm font-medium transition">
                 → Login
             </a>
         </div>
@@ -108,8 +108,8 @@
     <div class="w-full max-w-lg card-gradient rounded-2xl p-4 sm:p-6 shadow-2xl">
         <!-- Header -->
         <div class="text-center mb-4 sm:mb-5">
-            <h1 data-i18n="pageTitle" class="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">Shopee MY Compliance Checker</h1>
-            <p data-i18n="pageSubtitle" class="text-slate-400 text-xs sm:text-sm">Detect violations instantly. Avoid penalties & delisting.</p>
+            <h1 data-i18n="pageTitle" class="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">Shopee & Lazada MY Pre-Audit & Profit Intelligence</h1>
+            <p data-i18n="pageSubtitle" class="text-slate-400 text-xs sm:text-sm">Pre-audit compliance, fee breakdown & opportunity scoring. List with confidence.</p>
         </div>
 
         <!-- Trial Status Bar (hidden by default) -->
@@ -165,7 +165,7 @@
         <div id="firstTimeBanner" class="hidden mb-4 p-3 rounded-xl first-time-banner">
             <div class="flex items-center gap-2">
                 <span class="text-xl">👋</span>
-                <p class="text-sm text-blue-300" data-i18n="firstTimeBannerText">Paste your Shopee or Lazada product link below to start scanning.</p>
+                <p class="text-sm text-orange-300" data-i18n="firstTimeBannerText">Paste your Shopee or Lazada product link below to start scanning.</p>
             </div>
         </div>
 
@@ -188,14 +188,14 @@
 
 
 
-        <!-- First-time Margin Intro Banner -->
-        <div id="marginIntroBanner" class="hidden mb-4 p-3 sm:p-4 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800">
+        <!-- First-time Profit Intelligence Intro Banner -->
+        <div id="marginIntroBanner" class="hidden mb-4 p-3 sm:p-4 rounded-xl bg-orange-50 border border-orange-200 dark:bg-orange-950/30 dark:border-orange-800">
             <div class="flex items-start justify-between">
                 <div>
-                    <h3 class="text-sm font-bold text-blue-800 dark:text-blue-300 mb-1.5" data-i18n="scan.banner.title">💰 New: Gross Profit Calculator</h3>
-                    <p class="text-xs sm:text-[11px] text-blue-600 dark:text-blue-400 leading-relaxed" data-i18n="scan.banner.body">🔗 Paste Shopee/Lazada link → title & price auto-filled.<br/>✏️ Enter your cost.<br/>📊 Instant margin label: 🟢 High / 🟡 Medium / 🔴 Low.</p>
+                    <h3 class="text-sm font-bold text-orange-800 dark:text-orange-300 mb-1.5" data-i18n="scan.banner.title">💰 Profit Intelligence: Fee Breakdown + Opportunity Score</h3>
+                    <p class="text-xs sm:text-[11px] text-orange-600 dark:text-orange-400 leading-relaxed" data-i18n="scan.banner.body">🔗 Paste Shopee/Lazada link → title auto-filled.<br/>✏️ Enter cost, price & shipping.<br/>📊 Full fee breakdown: commission, transaction, service & platform fees.<br/>🎯 Opportunity score: compliance + profit + competition + risk.</p>
                 </div>
-                <button onclick="dismissMarginBanner()" class="text-blue-400 hover:text-blue-600 dark:text-blue-600 dark:hover:text-blue-400 p-1 shrink-0">
+                <button onclick="dismissMarginBanner()" class="text-orange-400 hover:text-orange-600 dark:text-orange-600 dark:hover:text-orange-400 p-1 shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -205,16 +205,12 @@
 
         <!-- Scan Form -->
         <form id="scanForm" class="space-y-3 sm:space-y-4">
-            <!-- Platform Selection -->
+            <!-- Platform Selection - Segmented Control -->
             <div class="flex items-center gap-3 mb-3">
-                <div class="text-xs text-slate-400" data-i18n="ruleSetLabel">Rule Set:</div>
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium text-white" data-i18n="platformShopee">Shopee MY</span>
-                    <span class="text-xs text-indigo-400 px-1.5 py-0.5 rounded bg-indigo-600/20" data-i18n="primaryLabel">Primary</span>
-                </div>
-                <div class="flex items-center gap-2 ml-4">
-                    <input type="checkbox" id="includeLazada" class="w-4 h-4 rounded border-slate-600 bg-slate-800 text-indigo-600 focus:ring-indigo-500">
-                    <label for="includeLazada" class="text-xs text-slate-400" data-i18n="includeLazadaLabel">Include Lazada MY (Additional flags)</label>
+                <div class="text-xs text-slate-400" data-i18n="ruleSetLabel">Platform:</div>
+                <div class="inline-flex rounded-lg overflow-hidden border border-slate-600" id="platformSelector">
+                    <button type="button" id="platformShopeeBtn" class="platform-btn px-4 py-1.5 text-xs font-medium transition-colors bg-orange-600 text-white" data-platform="shopee" data-i18n="platformShopee">Shopee MY</button>
+                    <button type="button" id="platformLazadaBtn" class="platform-btn px-4 py-1.5 text-xs font-medium transition-colors bg-slate-800 text-slate-400 hover:text-white" data-platform="lazada" data-i18n="platformLazada">Lazada MY</button>
                 </div>
             </div>
 
@@ -231,13 +227,87 @@
                 <!-- Est. Cost (RM) -->
                 <div class="mb-3">
                     <label class="text-xs text-slate-400 mb-1 block" data-i18n="scan.form.cost_label">Est. Cost (RM)</label>
-                    <input type="number" id="cost_rm" step="0.01" min="0" placeholder="0.00" class="w-full px-3 py-2.5 rounded-lg input-dark text-white text-sm">
+                    <div class="relative">
+                        <input type="number" id="cost_rm" step="0.01" min="0" placeholder="0.00" class="w-full px-3 py-2.5 pr-10 rounded-lg input-dark text-white text-sm">
+                        <button type="button" id="supplierPickerBtn" onclick="toggleSupplierPicker(event)" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-base leading-none p-1 rounded hover:bg-white/10 transition" title="Pick supplier">
+                            🏭
+                        </button>
+                        <!-- Supplier dropdown (Phase 2.3) -->
+                        <div id="supplierDropdown" class="hidden absolute right-0 top-full mt-1 w-64 max-h-72 overflow-y-auto bg-gray-800 border border-white/10 rounded-lg shadow-xl z-50">
+                            <div id="supplierDropdownLoading" class="px-3 py-2 text-xs text-slate-500">Loading...</div>
+                            <div id="supplierDropdownList"></div>
+                            <div id="supplierDropdownEmpty" class="hidden px-3 py-3 text-xs text-slate-500 text-center">
+                                <p class="mb-2" data-i18n="scan.supplier.empty">No suppliers saved.</p>
+                                <a href="/dashboard" class="text-orange-400 hover:text-orange-300 text-[11px]" data-i18n="scan.supplier.go_dashboard">Go to Dashboard →</a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Est. Price (RM) -->
                 <div class="mb-3">
                     <label class="text-xs text-slate-400 mb-1 block" data-i18n="scan.form.price_label">Est. Price (RM)</label>
                     <input type="number" id="price_rm" step="0.01" min="0" placeholder="0.00" class="w-full px-3 py-2.5 rounded-lg input-dark text-white text-sm">
+                </div>
+
+                <!-- Advanced Settings (Collapsible) — Free 用户灰色禁用 -->
+                <div id="advancedToggle" class="mb-3 relative">
+                    <button type="button" onclick="toggleAdvanced()" class="flex items-center gap-2 text-xs text-orange-400 hover:text-orange-300 transition" id="advancedToggleBtn">
+                        <svg id="advancedChevron" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                        <span data-i18n="scan.advanced.toggle">Advanced Profit Settings</span>
+                    </button>
+                </div>
+
+                <div id="advancedSettings" class="hidden mb-3 p-3 rounded-xl bg-slate-900/40 border border-slate-700/50 space-y-3 relative">
+                    <!-- Free 用户锁定遮罩 -->
+                    <div id="advancedLockOverlay" class="absolute inset-0 bg-slate-900/70 backdrop-blur-[2px] rounded-xl z-10 flex items-center justify-center cursor-pointer hidden" onclick="toggleAdvanced()">
+                        <div class="text-center px-4">
+                            <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-700/80 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                            </div>
+                            <p class="text-slate-400 text-xs font-medium mb-1" data-i18n="scan.advanced.lock_title">Pro Feature</p>
+                            <p class="text-slate-500 text-[10px] mb-2" data-i18n="scan.advanced.lock_desc">Upgrade to adjust shipping, seller type & cashback</p>
+                            <a href="#" onclick="handleUpgradeFromIndex('advanced_lock'); return false;" class="inline-flex items-center gap-1 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold transition" data-i18n="scan.advanced.lock_btn">Upgrade to Pro</a>
+                        </div>
+                    </div>
+                    <!-- Pro 默认值状态条 + 更新为默认按钮 -->
+                    <div id="prefStatusRow" class="hidden flex items-center justify-between gap-2 pb-2 border-b border-slate-700/40">
+                        <span id="prefStatusTag" class="text-[10px] text-slate-400 flex items-center gap-1"></span>
+                        <button type="button" id="saveAsDefaultBtn" onclick="saveCurrentAsDefault()" class="text-[10px] px-2 py-1 rounded-md bg-orange-600/20 text-orange-400 hover:bg-orange-600/30 font-medium transition flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span data-i18n="scan.advanced.save_as_default">Save as Default</span>
+                        </button>
+                    </div>
+                    <!-- Buyer Shipping Fee -->
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block" data-i18n="scan.form.shipping_fee_label">Buyer Shipping Fee (RM)</label>
+                        <input type="number" id="shipping_fee" step="0.01" min="0" placeholder="0.00" class="w-full px-3 py-2 rounded-lg input-dark text-white text-sm">
+                    </div>
+                    <!-- Seller Shipping Cost -->
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block" data-i18n="scan.form.shipping_cost_label">Seller Shipping Cost (RM)</label>
+                        <input type="number" id="shipping_cost" step="0.01" min="0" placeholder="0.00" class="w-full px-3 py-2 rounded-lg input-dark text-white text-sm">
+                    </div>
+                    <!-- Seller Type -->
+                    <div>
+                        <label class="text-xs text-slate-400 mb-1 block flex items-center gap-1.5">
+                            <span data-i18n="scan.form.seller_type_label">Seller Type</span>
+                            <span class="seller-type-pro-badge text-[9px] px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium hidden">PRO</span>
+                        </label>
+                        <select id="seller_type" class="input-dark w-full px-3 py-2.5 rounded-lg text-white outline-none transition text-sm appearance-none cursor-pointer">
+                            <option value="marketplace" data-i18n="scan.form.seller_marketplace">Marketplace Seller</option>
+                            <option value="mall" data-i18n="scan.form.seller_mall">Shopee Mall Seller</option>
+                        </select>
+                    </div>
+                    <!-- Cashback Toggle -->
+                    <div class="flex items-center gap-2" id="cashbackWrapper">
+                        <input type="checkbox" id="cashback_enabled" checked class="w-4 h-4 rounded border-slate-600 bg-slate-800 text-orange-600 focus:ring-orange-500">
+                        <label for="cashback_enabled" class="text-xs text-slate-400 cursor-pointer" data-i18n="scan.form.cashback_label">Participate in Cashback Program</label>
+                    </div>
                 </div>
 
                 <!-- Description -->
@@ -259,7 +329,17 @@
                     <option value="beauty" data-i18n="catBeauty">Beauty & Skincare</option>
                     <option value="fashion" data-i18n="catFashion">Fashion & Apparel</option>
                     <option value="home" data-i18n="catHome">Home & Living</option>
+                    <option value="health" data-i18n="catHealth">Health & Supplements</option>
+                    <option value="baby" data-i18n="catBaby">Baby & Toys</option>
+                    <option value="sports" data-i18n="catSports">Sports & Outdoor</option>
+                    <option value="food" data-i18n="catFood">Food & Beverages</option>
                 </select>
+            </div>
+
+            <!-- Scan Count Indicator (Free users only) -->
+            <div id="scanCountIndicator" class="hidden mb-2 flex items-center justify-between text-xs px-1">
+                <span class="text-slate-400" data-i18n="scanCountLabel">Today's scans</span>
+                <span class="font-semibold text-orange-400" id="scanCountText">0/5 (5 left)</span>
             </div>
 
             <!-- Submit Button -->
@@ -303,7 +383,7 @@
 
             <!-- 文件选择 + 模板下载按钮 -->
             <div class="flex gap-2 mb-3">
-                <button id="selectCsvBtn" onclick="handleSelectCsvClick()" class="flex-1 py-2.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-sm font-medium hover:bg-indigo-500/30 transition flex items-center justify-center gap-2">
+                <button id="selectCsvBtn" onclick="handleSelectCsvClick()" class="flex-1 py-2.5 rounded-lg bg-orange-500/20 border border-orange-500/30 text-orange-300 text-sm font-medium hover:bg-orange-500/30 transition flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                     <span data-i18n="batchSelectFile">Select CSV File</span>
                 </button>
@@ -324,104 +404,21 @@
             </button>
 
             <div id="batchProgress" class="hidden mt-3 flex items-center justify-center gap-2">
-                <div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-indigo-500 border-t-transparent"></div>
+                <div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></div>
                 <span class="text-xs text-slate-400" data-i18n="batchProcessing">Processing...</span>
             </div>
         </div>
 
         <!-- Loading State -->
         <div id="loadingState" class="hidden text-center py-6">
-            <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-500 border-t-transparent"></div>
+            <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-orange-500 border-t-transparent"></div>
             <p data-i18n="scanning" class="mt-3 text-slate-400 text-sm">Scanning...</p>
         </div>
     </div>
 
     <!-- Footer -->
     <div class="mt-4 text-center px-4">
-        <p data-i18n="footerPolicy" class="text-xs text-gray-400 max-w-lg">Advisory only. Based on publicly available Shopee MY resources. Not affiliated with Shopee/Lazada.</p>
-    </div>
-
-    <!-- Trial Modal -->
-    <div id="trialModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4 overflow-y-auto py-8">
-        <div class="card-gradient rounded-2xl w-full max-w-sm p-5 sm:p-6 shadow-2xl relative my-auto">
-            <!-- Close Button -->
-            <button id="modalClose" onclick="closeModal()" class="absolute top-3 right-3 text-slate-400 hover:text-white transition p-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-
-            <!-- Modal Content -->
-            <div class="text-center mb-5">
-                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-500/20 mb-3">
-                    <span class="text-2xl">🔒</span>
-                </div>
-                <h2 data-i18n="unlockTrial" class="text-lg sm:text-xl font-bold text-white mb-1">Unlock 7-Day Free Trial</h2>
-                <p data-i18n="trialHint" class="text-slate-400 text-xs sm:text-sm">Enter your email for unlimited scans, no credit card required.</p>
-            </div>
-
-            <!-- Modal Form -->
-            <form id="trialForm">
-                <input id="modalEmail" type="email" required
-                    class="input-dark w-full px-3 py-2.5 rounded-lg text-white outline-none transition mb-4 text-sm"
-                    data-i18n="emailPlaceholder">
-
-                <div class="flex gap-3">
-                    <button type="button" onclick="closeModal()"
-                        class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition text-sm">
-                        <span data-i18n="cancel">Cancel</span>
-                    </button>
-                    <button type="button" onclick="handleTrialStart(event)"
-                        class="flex-1 py-2.5 btn-gradient text-white font-medium rounded-lg transition text-sm">
-                        <span data-i18n="unlock">Unlock Trial</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Bind WA Modal -->
-    <div id="bindWaModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4 overflow-y-auto py-8">
-        <div class="card-gradient rounded-2xl w-full max-w-sm p-5 sm:p-6 shadow-2xl relative my-auto">
-            <!-- Close Button -->
-            <button onclick="closeBindWaModal()" class="absolute top-3 right-3 text-slate-400 hover:text-white transition p-1">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                </svg>
-            </button>
-
-            <!-- Modal Content -->
-            <div class="text-center mb-5">
-                <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-500/20 mb-3">
-                    <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                    </svg>
-                </div>
-                <h2 data-i18n="trial_modal.title" class="text-lg sm:text-xl font-bold text-white mb-1">Activate 7-Day Pro Trial</h2>
-                <p class="text-slate-400 text-xs sm:text-sm">Bind your WhatsApp to unlock Pro features</p>
-            </div>
-
-            <!-- Modal Form -->
-            <form id="bindWaForm">
-                <input id="waNumberInput" type="tel" required
-                    class="input-dark w-full px-3 py-2.5 rounded-lg text-white outline-none transition mb-2 text-sm"
-                    data-i18n="trial_modal.input_placeholder" placeholder="+6012 345 6789">
-                <p class="text-xs text-slate-500 mb-4 text-center">支持格式：+60123456789 或 +60 12-345 6789</p>
-
-                <div id="bindWaError" class="hidden mb-3 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs"></div>
-
-                <div class="flex gap-3">
-                    <button type="button" onclick="closeBindWaModal()"
-                        class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition text-sm">
-                        <span data-i18n="cancel">Cancel</span>
-                    </button>
-                    <button type="button" onclick="handleBindWa()"
-                        class="flex-1 py-2.5 btn-gradient text-white font-medium rounded-lg transition text-sm">
-                        <span data-i18n="trialActivate">Activate</span>
-                    </button>
-                </div>
-            </form>
-        </div>
+        <p data-i18n="footerPolicy" class="text-xs text-gray-400 max-w-lg">Advisory only. Based on publicly available Shopee & Lazada MY resources. Not affiliated with Shopee/Lazada.</p>
     </div>
 
     <!-- Result Modal -->
@@ -441,9 +438,9 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <span>7 <span data-i18n="days">days</span> <span data-i18n="trialRemaining">Remaining</span> <strong id="modalTrialDays">0</strong></span>
+                        <span><strong id="modalTrialDays">0</strong> <span data-i18n="days">days</span> <span data-i18n="trialRemaining">Trial Remaining</span></span>
                     </div>
-                    <a href="#" onclick="handleUpgradeFromIndex('trial_modal')" class="text-indigo-600 hover:text-indigo-700 font-medium"><span data-i18n="upgradePro">Upgrade to Pro →</span></a>
+                    <a href="#" onclick="handleUpgradeFromIndex('trial_modal'); return false;" class="text-orange-600 hover:text-orange-700 font-medium"><span data-i18n="upgradePro">Upgrade to Pro →</span></a>
                 </div>
             </div>
 
@@ -482,8 +479,8 @@
             </div>
 
             <div class="flex flex-col gap-2">
-                <a href="#" onclick="handleUpgradeFromIndex('daily_limit_modal')" class="flex-1 py-3 btn-orange text-white font-medium rounded-lg transition text-sm text-center">
-                    <span data-i18n="limitBannerBtn">Upgrade to Pro – RM29/mo</span>
+                <a href="#" onclick="handleUpgradeFromIndex('daily_limit_modal'); return false;" class="flex-1 py-3 btn-orange text-white font-medium rounded-lg transition text-sm text-center">
+                    <span data-i18n="limitBannerBtn">Upgrade to Pro – RM59/mo</span>
                 </a>
                 <button onclick="closeLimitModal()" class="flex-1 py-3 bg-white/5 hover:bg-white/10 text-slate-300 font-medium rounded-lg transition text-sm">
                     <span data-i18n="close">Close</span>

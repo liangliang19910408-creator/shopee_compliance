@@ -73,7 +73,7 @@
     ]
   },
   "cta": {
-    "primary": { "text": "免费试用7天Pro，自动扫描72+违规词", "url": "/?utm_source=site_guide&utm_medium=cta_primary" },
+    "primary": { "text": "免费试用7天Pro，预审合规+计算利润", "url": "/?utm_source=site_guide&utm_medium=cta_primary" },
     "pdfSafety": { "text": "下载完整《封店避坑指南》PDF", "url": "/?utm_source=pdf_safety&utm_medium=pdf_download" },
     "pdfSelection": { "text": "下载完整《选品运营指南》PDF", "url": "/?utm_source=pdf_guide&utm_medium=pdf_download" }
   }

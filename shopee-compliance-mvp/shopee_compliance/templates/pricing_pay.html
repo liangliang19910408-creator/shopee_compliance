@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complete Your Purchase - Compliance MY</title>
+    <title>Complete Your Purchase - Compliance MY | Pre-Audit & Profit Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
         html, body { height: 100%; scroll-behavior: smooth; }
         .gradient-bg {
-            background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 50%, #EFF6FF 100%);
+            background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 50%, #FFF7ED 100%);
         }
         .btn-primary {
             background: linear-gradient(135deg, #EE4D2D 0%, #F97316 100%);
@@ -39,11 +39,11 @@
         }
         .card-bg {
             background: #FFFFFF;
-            box-shadow: 0 4px 24px rgba(37, 99, 235, 0.08);
+            box-shadow: 0 4px 24px rgba(238, 77, 45, 0.08);
         }
         .trust-badge {
             background: #FFFFFF;
-            border: 1px solid #DBEAFE;
+            border: 1px solid #FFEDD5;
         }
         .payment-option {
             background: #FFFFFF;
@@ -51,11 +51,11 @@
             transition: all 0.2s ease;
         }
         .payment-option:hover {
-            border-color: #2563EB;
+            border-color: #EE4D2D;
         }
         .payment-option.active {
-            border-color: #2563EB;
-            background: #EFF6FF;
+            border-color: #EE4D2D;
+            background: #FFF7ED;
         }
         .account-card {
             background: #F9FAFB;
@@ -102,7 +102,7 @@
 <body class="gradient-bg min-h-screen text-slate-900">
 
     <!-- Navbar -->
-    <nav class="bg-white/80 backdrop-blur-lg border-b border-blue-100 sticky top-0 z-40">
+    <nav class="bg-white/80 backdrop-blur-lg border-b border-orange-100 sticky top-0 z-40">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center font-bold text-sm text-white">
@@ -112,7 +112,7 @@
             </a>
 
             <div class="flex items-center gap-3">
-                <button id="langToggle" onclick="toggleLanguage()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 transition text-sm font-medium">
+                <button id="langToggle" onclick="toggleLanguage()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 transition text-sm font-medium">
                     <span>🌐</span>
                     <span id="langLabel">EN</span>
                 </button>
@@ -126,11 +126,11 @@
         <!-- Page Title -->
         <div class="text-center mb-6">
             <h1 data-i18n="payTitle" class="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Complete Your Purchase</h1>
-            <p data-i18n="paySubtitle" class="text-slate-600 text-sm">Secure checkout. Instant access. No hidden fees.</p>
+            <p data-i18n="paySubtitle" class="text-slate-600 text-sm">Unlock AI pre-audit, unlimited profit analysis, and batch scanning.</p>
         </div>
 
         <!-- Price Summary Card -->
-        <div class="card-bg rounded-2xl p-5 sm:p-6 mb-4 border-2 border-blue-100">
+        <div class="card-bg rounded-2xl p-5 sm:p-6 mb-4 border-2 border-orange-100">
             <div class="flex items-center justify-between">
                 <div>
                     <div class="text-xs text-slate-500 font-medium uppercase tracking-wide mb-1" data-i18n="planLabel">Pro Plan</div>
@@ -139,7 +139,7 @@
                 <div class="text-right">
                     <div class="flex items-baseline gap-1">
                         <span class="text-sm text-slate-500">RM</span>
-                        <span class="text-3xl sm:text-4xl font-extrabold text-blue-600">29</span>
+                        <span class="text-3xl sm:text-4xl font-extrabold text-orange-600">59</span>
                         <span class="text-sm text-slate-500">.00</span>
                     </div>
                     <div class="text-xs text-slate-500 mt-0.5" data-i18n="perMonth">/ month</div>
@@ -170,7 +170,7 @@
                     <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                     </svg>
-                    <span data-i18n="feature4">Batch CSV up to 200 items (with margin report)</span>
+                    <span data-i18n="feature4">Batch CSV up to 100 items (with margin report)</span>
                 </li>
                 <li class="flex items-center gap-2 text-sm text-slate-700">
                     <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -184,27 +184,45 @@
                     </svg>
                     <span data-i18n="feature6">False positive reward: +7 days Pro</span>
                 </li>
+                <li class="flex items-center gap-2 text-sm text-slate-700">
+                    <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span data-i18n="feature7">IntelliAudit 2.0: AI insight engine with quick actions</span>
+                </li>
+                <li class="flex items-center gap-2 text-sm text-slate-700">
+                    <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span data-i18n="feature8">Full fee breakdown & opportunity score dimensions</span>
+                </li>
+                <li class="flex items-center gap-2 text-sm text-slate-700">
+                    <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span data-i18n="feature9">Break-even price, ROI & suggested pricing</span>
+                </li>
             </ul>
         </div>
 
         <!-- Trust Badges -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
             <div class="trust-badge rounded-xl p-4 flex items-start gap-3">
-                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-xl">🛡️</div>
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-xl">🛡️</div>
                 <div>
                     <div class="font-semibold text-slate-900 text-sm" data-i18n="trust1Title">Secure Payment</div>
                     <div class="text-xs text-slate-600 mt-0.5" data-i18n="trust1Desc">Powered by Creem</div>
                 </div>
             </div>
             <div class="trust-badge rounded-xl p-4 flex items-start gap-3">
-                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-xl">↩️</div>
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-xl">↩️</div>
                 <div>
                     <div class="font-semibold text-slate-900 text-sm" data-i18n="trust2Title">7-Day Guarantee</div>
                     <div class="text-xs text-slate-600 mt-0.5" data-i18n="trust2Desc">Money back if not satisfied</div>
                 </div>
             </div>
             <div class="trust-badge rounded-xl p-4 flex items-start gap-3">
-                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-xl">💬</div>
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-xl">💬</div>
                 <div>
                     <div class="font-semibold text-slate-900 text-sm" data-i18n="trust3Title">Priority Support</div>
                     <div class="text-xs text-slate-600 mt-0.5" data-i18n="trust3Desc">WhatsApp support within 12h</div>
@@ -217,7 +235,7 @@
             <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-4" data-i18n="paymentMethod">Payment Method</h2>
 
             <!-- Creem Checkout -->
-            <div class="p-4 rounded-xl bg-blue-50 border border-blue-100">
+            <div class="p-4 rounded-xl bg-orange-50 border border-orange-100">
                 <button id="checkoutBtn" onclick="handleCheckout()" class="btn-primary w-full py-3 text-white font-semibold rounded-lg transition text-sm sm:text-base flex items-center justify-center gap-2">
                     <span data-i18n="checkoutBtn">Subscribe with Creem</span>
                     <span>→</span>
